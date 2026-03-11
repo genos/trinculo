@@ -1,0 +1,6 @@
+---
+source: src/lib.rs
+expression: quote_binary().to_vec()
+extension: bin
+snapshot_kind: binary
+---
