@@ -62,6 +62,46 @@ impl Hash for Expr {
     }
 }
 
+/// Packing an [Expr] into a [u64].
+///
+/// The binary format is as follows:
+/// ```text
+/// | 3 bit tag | 3 bit op | 26 zero bits (junk) | 32 bit payload |
+/// ```
+/// where
+/// - The `tag` describes which variant of the [Expr] we have:
+///     - `0b000 => ` [`Expr::VarX`],
+///     - `0b001 => ` [`Expr::VarY`],
+///     - `0b010 => ` [`Expr::Const`],
+///     - `0b011 => ` [`Expr::Dyad`],
+///     - `0b100 => ` [`Expr::Monad`],
+///     - any other value is an **error**.
+/// - The `op` _either_:
+///     - describes the [Dyad] operation, if the `tag` is the dyad value of `0b011`:
+///         - `0b000 => ` [`Dyad::Add`],
+///         - `0b001 => ` [`Dyad::Sub`],
+///         - `0b010 => ` [`Dyad::Mul`],
+///         - `0b011 => ` [`Dyad::Max`],
+///         - `0b100 => ` [`Dyad::Min`],
+///         - any other value is an **error**.
+///     - describes the [Monad] operation, if the `tag` is the monad value of `0b100`:
+///         - `0b000 => ` [`Monad::Neg`],
+///         - `0b001 => ` [`Monad::Square`],
+///         - `0b010 => ` [`Monad::Sqrt`],
+///         - any other value is an **error**.
+///     - is zero otherwise (any other value is an **error**).
+/// - The "junk" bits are zero, and it's an **error** to have them otherwise.
+/// - The 32 bit payload is _either_:
+///     - the 32 bits of the [f32] in [`Expr::Const`], if the `tag` is `0b010`,
+///     - `(x | y << 16)`, where `x` and `y` are the [u16] arguments of [`Expr::Dyad`], if `tag` is
+///       `0b011` and `op` is an appropriate value,
+///     - `x`, where `x` is the [u16] argument of [`Expr::Monad`], if `tag` is `0b100` and `op` is
+///       an appropriate value (note that the top 16 bits of `payload` **must** be zero in this
+///       case),
+///     - is zero otherwise (any other value is an **error**).
+///
+/// Having "junk" bits is less than ideal, but I couldn't see a way to encode the `tag`, `op`, and
+/// `payload` without needing 64 bits—the `payload` is often 32 bits on its own.
 impl From<Expr> for u64 {
     fn from(x: Expr) -> Self {
         match x {
