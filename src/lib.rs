@@ -1,4 +1,4 @@
-//! Playing with [Matt Keeter's Prospero Challenge](https://www.mattkeeter.com/projects/prospero/)
+//! Playing with [Matt Keeter's Prospero Challenge](https://www.mattkeeter.com/projects/prospero/).
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
