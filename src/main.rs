@@ -1,3 +1,1 @@
-fn main() {
-    println!("{}", trinculo::quote());
-}
+fn main() {}
