@@ -168,10 +168,11 @@ impl TryFrom<u64> for Expr {
             (0b011, 0b010, _) => Ok(Self::Dyad(Dyad::Mul, x, y)),
             (0b011, 0b011, _) => Ok(Self::Dyad(Dyad::Max, x, y)),
             (0b011, 0b100, _) => Ok(Self::Dyad(Dyad::Min, x, y)),
-            (0b011, _, _) => Err(ExprU64Error::DyadOp(op)),
+            (0b011, _, _) => Err(ExprU64Error::DyadOp(op << 3)),
             (0b100, 0b000, _) if y == 0 => Ok(Self::Monad(Monad::Neg, x)),
             (0b100, 0b001, _) if y == 0 => Ok(Self::Monad(Monad::Square, x)),
             (0b100, 0b010, _) if y == 0 => Ok(Self::Monad(Monad::Sqrt, x)),
+            (0b100, _, _) if y == 0 => Err(ExprU64Error::MonadOp(op << 3)),
             (0b100, _, _) => Err(ExprU64Error::NzM(u64::from(y) << 48)),
             _ => Err(ExprU64Error::Tag(tag)),
         }
@@ -254,7 +255,7 @@ impl FromStr for Expr {
                 Ok(Self::Const(x))
             }
             "add" | "sub" | "mul" | "max" | "min" => {
-                let op = Dyad::from_str(t).map_err(|_| ExprParseError::BadOp(t.to_string()))?;
+                let op = Dyad::from_str(t).expect("add|sub|mul|max|min: {t}");
                 let x = hex(tokens.next().ok_or(ExprParseError::DyadMissing(op))?)?;
                 let y = hex(tokens.next().ok_or(ExprParseError::DyadMissing(op))?)?;
                 let rest = tokens.join(" ");
@@ -264,7 +265,7 @@ impl FromStr for Expr {
                 Ok(Self::Dyad(op, x, y))
             }
             "neg" | "square" | "sqrt" => {
-                let op = Monad::from_str(t).map_err(|_| ExprParseError::BadOp(t.to_string()))?;
+                let op = Monad::from_str(t).expect("neg|square|sqrt: {t}");
                 let x = hex(tokens.next().ok_or(ExprParseError::MonadMissing(op))?)?;
                 let rest = tokens.join(" ");
                 if !rest.is_empty() {
@@ -312,7 +313,7 @@ pub fn parse(s: &str) -> Result<Program, ParseError> {
 pub struct Parser;
 
 /// Errors that can arise when trying to parse a program
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ParseError {
     #[error("Empty program")]
     EmptyProg,
@@ -362,6 +363,7 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
     use rstest::*;
+    use std::collections::HashSet;
 
     proptest! {
         #[test]
@@ -412,6 +414,11 @@ mod tests {
         }
 
         #[test]
+        fn expr_has_eq(x: Expr, y: Expr) {
+            prop_assert_eq!(x == y, HashSet::from([x]) == HashSet::from([y]));
+        }
+
+        #[test]
         fn expr_u64_roundtrip(x: Expr) {
             let b = u64::from(x);
             let y = Expr::try_from(b);
@@ -446,6 +453,30 @@ mod tests {
         fn expr_u64_nzc(op in 1u64..(1<<3), payload in 0u64..(1<<32)) {
             let x = Expr::try_from(2 | (op << 3) | (payload << 32));
             prop_assert_eq!(x, Err(ExprU64Error::NzC((op << 3) | (payload << 32))));
+        }
+
+        #[test]
+        fn expr_u64_dyadop(op in 5u64..8, payload in 0u64..(1<<32)) {
+            let x = Expr::try_from(3 | (op << 3) | (payload << 32));
+            prop_assert_eq!(x, Err(ExprU64Error::DyadOp(op << 3)));
+        }
+
+        #[test]
+        fn expr_u64_monadop(op in 3u64..8, x in 0u64..(1<<16)) {
+            let x = Expr::try_from(4 | (op << 3) | (x << 32));
+            prop_assert_eq!(x, Err(ExprU64Error::MonadOp(op << 3)));
+        }
+
+        #[test]
+        fn expr_u64_nzm(op in 0u64..3, x in 0u64..(1<<16), y in 0u64..(1<<16)) {
+            let x = Expr::try_from(4 | (op << 3) | (x << 32) | (y << 48));
+            prop_assert_eq!(x, Err(ExprU64Error::NzM(y << 48)));
+        }
+
+        #[test]
+        fn exp_u64_tag(tag in 6u64..8, op in 0u64..3, payload in 0u64..(1<<32)) {
+            let x = Expr::try_from(tag | (op << 3) | (payload << 32));
+            prop_assert_eq!(x, Err(ExprU64Error::Tag(tag)));
         }
 
         #[test]
@@ -497,6 +528,19 @@ mod tests {
         let x = Expr::from_str(input);
         assert!(x.is_err());
         assert_eq!(x.err().unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case("", ParseError::EmptyProg)]
+    #[case("test\n_0 var-x", ParseError::BadHeader("test".to_string()))]
+    #[case("# test\n_q var-x", ParseError::BadHex{line: 0, error: HexParseError::NotHex("_q".to_string())})]
+    #[case("# test\n_1 var-x", ParseError::LineNumber{line: 0, value: 1})]
+    #[case("# test\n_0 nonsense", ParseError::BadExpr{line: 0, error: ExprParseError::BadOp("nonsense".to_string())})]
+    #[case("# test\n_1", ParseError::EmptyLine(0))]
+    fn prog_parse_errors(#[case] input: &str, #[case] expected: ParseError) {
+        let p = parse(input);
+        assert!(p.is_err());
+        assert_eq!(p.err().unwrap(), expected);
     }
 
     #[test]

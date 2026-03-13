@@ -78,5 +78,8 @@ mod tests {
         let f = NamedTempFile::with_suffix(".png");
         assert!(f.is_ok());
         assert!(write_image(1024, vec![0u8; 8 * 8], f.unwrap()).is_err());
+        let f = NamedTempFile::with_suffix(".definitely_not_a_png");
+        assert!(f.is_ok());
+        assert!(write_image(8, vec![0u8; 8 * 8], f.unwrap()).is_err());
     }
 }
