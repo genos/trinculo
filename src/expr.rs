@@ -45,8 +45,8 @@ pub enum Expr {
     VarX,
     VarY,
     Const(f32),
-    Dyad { op: Dyad, x: u16, y: u16 },
-    Monad { op: Monad, x: u16 },
+    Dyad(Dyad, u16, u16),
+    Monad(Monad, u16),
 }
 
 impl PartialEq for Expr {
@@ -107,11 +107,11 @@ impl From<Expr> for u64 {
         match x {
             Expr::VarX => 0b000,
             Expr::VarY => 0b001,
-            Expr::Const(c) => 0b010 | Self::from(c.to_bits()) << 32,
-            Expr::Dyad { op, x, y } => {
+            Expr::Const(x) => 0b010 | Self::from(x.to_bits()) << 32,
+            Expr::Dyad(op, x, y) => {
                 0b011 | (op as Self) << 3 | Self::from(x) << 32 | Self::from(y) << 48
             }
-            Expr::Monad { op, x } => 0b100 | (op as Self) << 3 | Self::from(x) << 32,
+            Expr::Monad(op, x) => 0b100 | (op as Self) << 3 | Self::from(x) << 32,
         }
     }
 }
@@ -163,38 +163,16 @@ impl TryFrom<u64> for Expr {
             (0b001, _, _) => Err(ExprU64Error::NzY((op << 3) | (u64::from(payload) << 32))),
             (0b010, 0, _) => Ok(Self::Const(f32::from_bits(payload))),
             (0b010, _, _) => Err(ExprU64Error::NzC((op << 3) | (u64::from(payload) << 32))),
-            (0b011, 0b000, _) => Ok(Self::Dyad {
-                op: Dyad::Add,
-                x,
-                y,
-            }),
-            (0b011, 0b001, _) => Ok(Self::Dyad {
-                op: Dyad::Sub,
-                x,
-                y,
-            }),
-            (0b011, 0b010, _) => Ok(Self::Dyad {
-                op: Dyad::Mul,
-                x,
-                y,
-            }),
-            (0b011, 0b011, _) => Ok(Self::Dyad {
-                op: Dyad::Max,
-                x,
-                y,
-            }),
-            (0b011, 0b100, _) => Ok(Self::Dyad {
-                op: Dyad::Min,
-                x,
-                y,
-            }),
-            (0b011, _, _) => Err(ExprU64Error::DyadOp(op)),
-            (0b100, 0b000, _) if y == 0 => Ok(Self::Monad { op: Monad::Neg, x }),
-            (0b100, 0b001, _) if y == 0 => Ok(Self::Monad {
-                op: Monad::Square,
-                x,
-            }),
-            (0b100, 0b010, _) if y == 0 => Ok(Self::Monad { op: Monad::Sqrt, x }),
+            (0b011, 0b000, _) => Ok(Self::Dyad(Dyad::Add, x, y)),
+            (0b011, 0b001, _) => Ok(Self::Dyad(Dyad::Sub, x, y)),
+            (0b011, 0b010, _) => Ok(Self::Dyad(Dyad::Mul, x, y)),
+            (0b011, 0b011, _) => Ok(Self::Dyad(Dyad::Max, x, y)),
+            (0b011, 0b100, _) => Ok(Self::Dyad(Dyad::Min, x, y)),
+            (0b011, _, _) => Err(ExprU64Error::DyadOp(op << 3)),
+            (0b100, 0b000, _) if y == 0 => Ok(Self::Monad(Monad::Neg, x)),
+            (0b100, 0b001, _) if y == 0 => Ok(Self::Monad(Monad::Square, x)),
+            (0b100, 0b010, _) if y == 0 => Ok(Self::Monad(Monad::Sqrt, x)),
+            (0b100, _, _) if y == 0 => Err(ExprU64Error::MonadOp(op << 3)),
             (0b100, _, _) => Err(ExprU64Error::NzM(u64::from(y) << 48)),
             _ => Err(ExprU64Error::Tag(tag)),
         }
@@ -206,9 +184,9 @@ impl fmt::Display for Expr {
         match self {
             Self::VarX => f.write_str("var-x"),
             Self::VarY => f.write_str("var-y"),
-            Self::Const(c) => write!(f, "const {c:?}"),
-            Self::Dyad { op, x, y } => write!(f, "{op} _{x:x} _{y:x}"),
-            Self::Monad { op, x } => write!(f, "{op} _{x:x}"),
+            Self::Const(x) => write!(f, "const {x:?}"),
+            Self::Dyad(op, x, y) => write!(f, "{op} _{x:x} _{y:x}"),
+            Self::Monad(op, x) => write!(f, "{op} _{x:x}"),
         }
     }
 }
@@ -271,29 +249,29 @@ impl FromStr for Expr {
             "var-y" => Ok(Self::VarY),
             "const" => {
                 let t = tokens.next().ok_or(ExprParseError::ConstValue)?;
-                let f = t
+                let x = t
                     .parse::<f32>()
                     .map_err(|_| ExprParseError::BadF32(t.to_string()))?;
-                Ok(Self::Const(f))
+                Ok(Self::Const(x))
             }
             "add" | "sub" | "mul" | "max" | "min" => {
-                let op = Dyad::from_str(t).map_err(|_| ExprParseError::BadOp(t.to_string()))?;
+                let op = Dyad::from_str(t).expect("add|sub|mul|max|min: {t}");
                 let x = hex(tokens.next().ok_or(ExprParseError::DyadMissing(op))?)?;
                 let y = hex(tokens.next().ok_or(ExprParseError::DyadMissing(op))?)?;
                 let rest = tokens.join(" ");
                 if !rest.is_empty() {
                     return Err(ExprParseError::Extra(rest));
                 }
-                Ok(Self::Dyad { op, x, y })
+                Ok(Self::Dyad(op, x, y))
             }
             "neg" | "square" | "sqrt" => {
-                let op = Monad::from_str(t).map_err(|_| ExprParseError::BadOp(t.to_string()))?;
+                let op = Monad::from_str(t).expect("neg|square|sqrt: {t}");
                 let x = hex(tokens.next().ok_or(ExprParseError::MonadMissing(op))?)?;
                 let rest = tokens.join(" ");
                 if !rest.is_empty() {
                     return Err(ExprParseError::Extra(rest));
                 }
-                Ok(Self::Monad { op, x })
+                Ok(Self::Monad(op, x))
             }
             _ => Err(ExprParseError::BadOp(t.to_string()))?,
         }
@@ -335,7 +313,7 @@ pub fn parse(s: &str) -> Result<Program, ParseError> {
 pub struct Parser;
 
 /// Errors that can arise when trying to parse a program
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ParseError {
     #[error("Empty program")]
     EmptyProg,
@@ -385,11 +363,19 @@ mod tests {
     use super::*;
     use proptest::prelude::*;
     use rstest::*;
+    use std::collections::HashSet;
 
     proptest! {
         #[test]
         fn dyad_roundtrip(x: Dyad) {
             let y = Dyad::from_str(&x.to_string());
+            prop_assert!(y.is_ok());
+            let y = y.unwrap();
+            prop_assert_eq!(x, y);
+        }
+        #[test]
+        fn dyad_roundtrip_dbg(x: Dyad) {
+            let y = Dyad::from_str(&format!("{x:?}"));
             prop_assert!(y.is_ok());
             let y = y.unwrap();
             prop_assert_eq!(x, y);
@@ -404,11 +390,32 @@ mod tests {
         }
 
         #[test]
+        fn monad_roundtrip_dbg(x: Monad) {
+            let y = Monad::from_str(&format!("{x:?}"));
+            prop_assert!(y.is_ok());
+            let y = y.unwrap();
+            prop_assert_eq!(x, y);
+        }
+
+        #[test]
         fn expr_roundtrip(x: Expr) {
             let y = Expr::from_str(&x.to_string());
             prop_assert!(y.is_ok());
             let y = y.unwrap();
             prop_assert_eq!(x, y);
+        }
+
+        #[test]
+        fn expr_roundtrip_dbg(x: Expr) {
+            let y = Expr::from_str(&format!("{x:?}"));
+            prop_assert!(y.is_ok());
+            let y = y.unwrap();
+            prop_assert_eq!(x, y);
+        }
+
+        #[test]
+        fn expr_has_eq(x: Expr, y: Expr) {
+            prop_assert_eq!(x == y, HashSet::from([x]) == HashSet::from([y]));
         }
 
         #[test]
@@ -421,12 +428,73 @@ mod tests {
         }
 
         #[test]
+        fn expr_u64_junk(tag in 0u64..5, junk in 1u64..(1<<26), payload in 0u64..(1<<32)) {
+            let x = Expr::try_from(tag | (junk << 6) | (payload << 32));
+            prop_assert_eq!(x, Err(ExprU64Error::Junk(junk)));
+        }
+
+        #[test]
+        fn expr_u64_nzx(op in 0u64..(1<<3), payload in 0u64..(1<<32)) {
+            if (op, payload) != (0, 0) {
+                let x = Expr::try_from((op << 3) | (payload << 32));
+                prop_assert_eq!(x, Err(ExprU64Error::NzX((op << 3) | (payload << 32))));
+            }
+        }
+
+        #[test]
+        fn expr_u64_nzy(op in 0u64..(1<<3), payload in 0u64..(1<<32)) {
+            if (op, payload) != (0, 0) {
+                let x = Expr::try_from(1 | (op << 3) | (payload << 32));
+                prop_assert_eq!(x, Err(ExprU64Error::NzY((op << 3) | (payload << 32))));
+            }
+        }
+
+        #[test]
+        fn expr_u64_nzc(op in 1u64..(1<<3), payload in 0u64..(1<<32)) {
+            let x = Expr::try_from(2 | (op << 3) | (payload << 32));
+            prop_assert_eq!(x, Err(ExprU64Error::NzC((op << 3) | (payload << 32))));
+        }
+
+        #[test]
+        fn expr_u64_dyadop(op in 5u64..8, payload in 0u64..(1<<32)) {
+            let x = Expr::try_from(3 | (op << 3) | (payload << 32));
+            prop_assert_eq!(x, Err(ExprU64Error::DyadOp(op << 3)));
+        }
+
+        #[test]
+        fn expr_u64_monadop(op in 3u64..8, x in 0u64..(1<<16)) {
+            let x = Expr::try_from(4 | (op << 3) | (x << 32));
+            prop_assert_eq!(x, Err(ExprU64Error::MonadOp(op << 3)));
+        }
+
+        #[test]
+        fn expr_u64_nzm(op in 0u64..3, x in 0u64..(1<<16), y in 0u64..(1<<16)) {
+            let x = Expr::try_from(4 | (op << 3) | (x << 32) | (y << 48));
+            prop_assert_eq!(x, Err(ExprU64Error::NzM(y << 48)));
+        }
+
+        #[test]
+        fn exp_u64_tag(tag in 6u64..8, op in 0u64..3, payload in 0u64..(1<<32)) {
+            let x = Expr::try_from(tag | (op << 3) | (payload << 32));
+            prop_assert_eq!(x, Err(ExprU64Error::Tag(tag)));
+        }
+
+        #[test]
         fn prog_roundtrip(xs: Program) {
             let ys = parse(&xs.to_string());
             prop_assert!(ys.is_ok());
             let ys = ys.unwrap();
             prop_assert_eq!(xs, ys);
         }
+
+        #[test]
+        fn prog_roundtrip_dbg(xs: Program) {
+            let ys = parse(&format!("{xs:?}"));
+            prop_assert!(ys.is_ok());
+            let ys = ys.unwrap();
+            prop_assert_eq!(xs, ys);
+        }
+
     }
 
     #[rstest]
@@ -454,11 +522,25 @@ mod tests {
     )]
     #[case("transmogrify _1 _2", ExprParseError::BadOp("transmogrify".to_string()))]
     #[case("const asdf", ExprParseError::BadF32("asdf".to_string()))]
+    #[case("min _1 _2 pretty please", ExprParseError::Extra("pretty please".to_string()))]
     #[case("neg _1 pretty please", ExprParseError::Extra("pretty please".to_string()))]
     fn expr_parse_errors(#[case] input: &str, #[case] expected: ExprParseError) {
         let x = Expr::from_str(input);
         assert!(x.is_err());
         assert_eq!(x.err().unwrap(), expected);
+    }
+
+    #[rstest]
+    #[case("", ParseError::EmptyProg)]
+    #[case("test\n_0 var-x", ParseError::BadHeader("test".to_string()))]
+    #[case("# test\n_q var-x", ParseError::BadHex{line: 0, error: HexParseError::NotHex("_q".to_string())})]
+    #[case("# test\n_1 var-x", ParseError::LineNumber{line: 0, value: 1})]
+    #[case("# test\n_0 nonsense", ParseError::BadExpr{line: 0, error: ExprParseError::BadOp("nonsense".to_string())})]
+    #[case("# test\n_1", ParseError::EmptyLine(0))]
+    fn prog_parse_errors(#[case] input: &str, #[case] expected: ParseError) {
+        let p = parse(input);
+        assert!(p.is_err());
+        assert_eq!(p.err().unwrap(), expected);
     }
 
     #[test]
