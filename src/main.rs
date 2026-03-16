@@ -1,7 +1,7 @@
 use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 use trinculo::{
-    Interpreter, direct,
+    Interpreter, baseline,
     expr::{self, parse},
     utils::{self, read_prospero, write_image},
 };
@@ -30,8 +30,8 @@ impl From<Pixels> for u32 {
 /// Which tool to use
 #[derive(Debug, Clone, ValueEnum)]
 enum Tool {
-    /// Direct interpreter of baseline expressions.
-    Direct,
+    /// Baseline interpreter of base expressions.
+    Baseline,
 }
 
 #[derive(Debug, Parser)]
@@ -42,7 +42,7 @@ struct Args {
     output: PathBuf,
     #[arg(short, long, default_value_t = Pixels::Normal, value_enum)]
     pixels: Pixels,
-    #[arg(short, long, default_value_t = Tool::Direct, value_enum)]
+    #[arg(short, long, default_value_t = Tool::Baseline, value_enum)]
     tool: Tool,
 }
 
@@ -53,8 +53,8 @@ enum Error {
     Utils(#[from] utils::Error),
     #[error("Parsing error: {0}")]
     Parse(#[from] expr::ParseError),
-    #[error("Direct interpretation error: {0}")]
-    Direct(#[from] direct::Error),
+    #[error("Baseline interpretation error: {0}")]
+    Baseline(#[from] baseline::Error),
 }
 
 fn main() -> Result<(), Error> {
@@ -63,9 +63,9 @@ fn main() -> Result<(), Error> {
     let input = read_prospero()?;
     let program = parse(&input)?;
     match args.tool {
-        Tool::Direct => write_image(
+        Tool::Baseline => write_image(
             image_size,
-            direct::Direct(image_size).interpret(program)?,
+            baseline::Baseline(image_size).interpret(program)?,
             args.output,
         )?,
     }

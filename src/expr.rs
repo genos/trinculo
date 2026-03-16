@@ -373,6 +373,7 @@ mod tests {
             let y = y.unwrap();
             prop_assert_eq!(x, y);
         }
+
         #[test]
         fn dyad_roundtrip_dbg(x: Dyad) {
             let y = Dyad::from_str(&format!("{x:?}"));
