@@ -1,8 +1,9 @@
 use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 use trinculo::{
-    Interpreter, baseline,
+    Interpreter, Translator, baseline,
     expr::{self, parse},
+    reuse,
     utils::{self, read_prospero, write_image},
 };
 
@@ -27,10 +28,19 @@ impl From<Pixels> for u32 {
     }
 }
 
-/// Which tool to use
+/// Which Translator to use
 #[derive(Debug, Clone, ValueEnum)]
-enum Tool {
-    /// Baseline interpreter of base expressions.
+enum Translation {
+    /// No translation
+    Nop,
+    /// Reuse previously seen expressions
+    Reuse,
+}
+
+/// Which Interpreter to use
+#[derive(Debug, Clone, ValueEnum)]
+enum Interpretation {
+    /// Baseline interpreter of expressions.
     Baseline,
 }
 
@@ -40,10 +50,15 @@ struct Args {
     /// Where to write the output
     #[arg(short, long)]
     output: PathBuf,
+    /// Pixel size to render
     #[arg(short, long, default_value_t = Pixels::Normal, value_enum)]
     pixels: Pixels,
-    #[arg(short, long, default_value_t = Tool::Baseline, value_enum)]
-    tool: Tool,
+    /// Which translator(s) to use
+    #[arg(short, long, value_enum)]
+    translators: Vec<Translation>,
+    /// Which interpreter to use
+    #[arg(short, long, default_value_t = Interpretation::Baseline, value_enum)]
+    interpreter: Interpretation,
 }
 
 /// Errors
@@ -53,6 +68,8 @@ enum Error {
     Utils(#[from] utils::Error),
     #[error("Parsing error: {0}")]
     Parse(#[from] expr::ParseError),
+    #[error("Reuse translation error: {0}")]
+    Reuse(#[from] reuse::Error),
     #[error("Baseline interpretation error: {0}")]
     Baseline(#[from] baseline::Error),
 }
@@ -61,9 +78,15 @@ fn main() -> Result<(), Error> {
     let args = Args::parse();
     let image_size = u32::from(args.pixels);
     let input = read_prospero()?;
-    let program = parse(&input)?;
-    match args.tool {
-        Tool::Baseline => write_image(
+    let mut program = parse(&input)?;
+    for t in args.translators {
+        match t {
+            Translation::Nop => (),
+            Translation::Reuse => program = reuse::Reuse.translate(program)?,
+        }
+    }
+    match args.interpreter {
+        Interpretation::Baseline => write_image(
             image_size,
             baseline::Baseline(image_size).interpret(program)?,
             args.output,

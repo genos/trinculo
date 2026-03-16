@@ -1,4 +1,4 @@
-//! Base expressions.
+//! Expressions.
 use crate::Translator;
 use itertools::Itertools;
 use std::{
@@ -255,7 +255,7 @@ impl FromStr for Expr {
                 Ok(Self::Const(x))
             }
             "add" | "sub" | "mul" | "max" | "min" => {
-                let op = Dyad::from_str(t).expect("add|sub|mul|max|min: {t}");
+                let op = Dyad::from_str(t).unwrap_or_else(|_| panic!("add|sub|mul|max|min: {t}"));
                 let x = hex(tokens.next().ok_or(ExprParseError::DyadMissing(op))?)?;
                 let y = hex(tokens.next().ok_or(ExprParseError::DyadMissing(op))?)?;
                 let rest = tokens.join(" ");
@@ -265,7 +265,7 @@ impl FromStr for Expr {
                 Ok(Self::Dyad(op, x, y))
             }
             "neg" | "square" | "sqrt" => {
-                let op = Monad::from_str(t).expect("neg|square|sqrt: {t}");
+                let op = Monad::from_str(t).unwrap_or_else(|_| panic!("neg|square|sqrt: {t}"));
                 let x = hex(tokens.next().ok_or(ExprParseError::MonadMissing(op))?)?;
                 let rest = tokens.join(" ");
                 if !rest.is_empty() {
@@ -278,12 +278,24 @@ impl FromStr for Expr {
     }
 }
 
-/// A collection of base expressions, with a header string.
+/// A collection of expressions, with a header string.
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct Program {
     pub header: String,
     pub exprs: Vec<Expr>,
+}
+
+impl Program {
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.exprs.len()
+    }
+
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.exprs.is_empty()
+    }
 }
 
 impl fmt::Display for Program {
