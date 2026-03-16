@@ -4,55 +4,71 @@ use crate::{
     Translator,
     expr::{Dyad, Expr, Monad, Program},
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Instant};
 
 pub struct Reuse;
 #[derive(Debug, thiserror::Error)]
-pub enum Error {}
+pub enum Error {
+    #[error("usize {0} too big to fit as a u16")]
+    TooBig(usize),
+}
 
 impl Translator for Reuse {
     type Input = Program;
     type Output = Program;
     type Error = Error;
-    fn translate(&self, p: Program) -> Result<Program, Error> {
-        let size = p.exprs.len();
-        let (mut exprs, mut ix, mut lookup, mut i) = (
-            Vec::with_capacity(size),
-            Vec::with_capacity(size),
-            HashMap::<Expr, u16>::with_capacity(size),
-            0u16,
-        );
-        for e in p.exprs {
-            let f = match e {
-                Expr::VarX | Expr::VarY | Expr::Const(_) | Expr::Monad(_, _) => e,
-                Expr::Dyad(op, x, y) => match op {
-                    Dyad::Add | Dyad::Mul | Dyad::Max | Dyad::Min => {
-                        // commutativity
-                        Expr::Dyad(op, x.min(y), x.max(y))
-                    }
-                    Dyad::Sub => {
-                        // for x - y, have we already seen y - x?
-                        if let Some(&i) = lookup.get(&Expr::Dyad(Dyad::Sub, y, x)) {
-                            Expr::Monad(Monad::Neg, i)
-                        } else {
-                            e
+    fn translate(&self, prog: Program) -> Result<Program, Error> {
+        let start = Instant::now();
+        if prog.is_empty() {
+            Ok(prog)
+        } else {
+            let size = prog.exprs.len();
+            let (mut exprs, mut ix, mut lookup) = (
+                Vec::<Expr>::with_capacity(size),
+                Vec::<u16>::with_capacity(size),
+                HashMap::<Expr, u16>::with_capacity(size),
+            );
+            for e in prog.exprs {
+                let f = match e {
+                    Expr::VarX | Expr::VarY | Expr::Const(_) => e,
+                    Expr::Dyad(op, x, y) => {
+                        let (a, b) = (ix[usize::from(x)], ix[usize::from(y)]);
+                        match op {
+                            Dyad::Add | Dyad::Mul | Dyad::Max | Dyad::Min => {
+                                // commutativity
+                                Expr::Dyad(op, a.min(b), a.max(b))
+                            }
+                            Dyad::Sub => {
+                                // for a - b, have we already seen b - a?
+                                if let Some(&i) = lookup.get(&Expr::Dyad(Dyad::Sub, b, a)) {
+                                    Expr::Monad(Monad::Neg, i)
+                                } else {
+                                    Expr::Dyad(Dyad::Sub, a, b)
+                                }
+                            }
                         }
                     }
-                },
-            };
-            if let Some(&j) = lookup.get(&f) {
-                ix.push(j);
-            } else {
-                lookup.insert(f, i);
-                ix.push(i);
-                exprs.push(f);
-                i += 1;
+                    Expr::Monad(op, x) => Expr::Monad(op, ix[usize::from(x)]),
+                };
+                if let Some(&j) = lookup.get(&f) {
+                    ix.push(j);
+                } else {
+                    let i = u16::try_from(exprs.len()).map_err(|_| Error::TooBig(exprs.len()))?;
+                    lookup.insert(f, i);
+                    ix.push(i);
+                    exprs.push(f);
+                }
             }
+            let elapsed = start.elapsed();
+            let difference = size - exprs.len();
+            log::info!(
+                "Reuse Translator: time = {elapsed:?}, size difference = {difference} instructions"
+            );
+            Ok(Program {
+                header: prog.header,
+                exprs,
+            })
         }
-        Ok(Program {
-            header: p.header,
-            exprs,
-        })
     }
 }
 

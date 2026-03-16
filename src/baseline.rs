@@ -4,6 +4,7 @@ use crate::{
     Interpreter,
     expr::{Dyad, Expr, Monad, Program},
 };
+use std::time::Instant;
 
 pub struct Baseline(pub u32);
 
@@ -20,6 +21,7 @@ impl Interpreter for Baseline {
     type Error = Error;
     #[allow(clippy::cast_precision_loss)]
     fn interpret(&self, p: Program) -> Result<Vec<u8>, Error> {
+        let start = Instant::now();
         let image_size = usize::try_from(self.0).map_err(|_| Error::TooBigSize(self.0))?;
         let half_image_size = (self.0 / 2) as f32;
         let mut out = vec![0u8; image_size * image_size];
@@ -30,6 +32,8 @@ impl Interpreter for Baseline {
             let vy = 1.0 - (y as f32) / half_image_size;
             *b = run(vx, vy, &p.exprs);
         });
+        let elapsed = start.elapsed();
+        log::info!("Baseline Interpreter: time = {elapsed:?}");
         Ok(out)
     }
 }
