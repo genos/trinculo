@@ -24,6 +24,6 @@ pub trait Interpreter {
     fn interpret(&self, i: Self::Input) -> Result<Vec<u8>, Self::Error>;
 }
 
-pub mod direct;
+pub mod baseline;
 pub mod expr;
 pub mod utils;

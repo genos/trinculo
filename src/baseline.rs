@@ -1,11 +1,11 @@
-//! Direct interpretation of [`expr::Expr`] into [u8].
+//! Baseline interpretation of [`expr::Expr`] into [u8].
 
 use crate::{
     Interpreter,
     expr::{Dyad, Expr, Monad, Program},
 };
 
-pub struct Direct(pub u32);
+pub struct Baseline(pub u32);
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -15,7 +15,7 @@ pub enum Error {
     TooBigF32(u32),
 }
 
-impl Interpreter for Direct {
+impl Interpreter for Baseline {
     type Input = Program;
     type Error = Error;
     #[allow(clippy::cast_precision_loss)]
@@ -73,13 +73,13 @@ mod tests {
         utils::{read_prospero, to_image, to_png},
     };
     #[test]
-    fn direct_16() {
+    fn baseline_16() {
         let input = read_prospero();
         assert!(input.is_ok());
         let input = input.unwrap();
         let program = parse(&input);
         assert!(program.is_ok());
-        let output = Direct(16).interpret(program.unwrap());
+        let output = Baseline(16).interpret(program.unwrap());
         assert!(output.is_ok());
         let image = to_image(16, output.unwrap());
         assert!(image.is_ok());
