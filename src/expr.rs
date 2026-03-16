@@ -5,6 +5,7 @@ use std::{
     fmt,
     hash::{Hash, Hasher},
     str::FromStr,
+    time::Instant,
 };
 
 #[repr(u8)]
@@ -279,11 +280,50 @@ impl FromStr for Expr {
 }
 
 /// A collection of expressions, with a header string.
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 #[derive(PartialEq, Eq, Clone)]
 pub struct Program {
     pub header: String,
     pub exprs: Vec<Expr>,
+}
+
+#[cfg(test)]
+impl proptest::arbitrary::Arbitrary for Program {
+    type Parameters = ();
+    type Strategy = proptest::prelude::BoxedStrategy<Self>;
+    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+        use proptest::prelude::*;
+        let header = any::<String>();
+        let exprs = (0..1000u16).prop_flat_map(|n| {
+            (0..n)
+                .map(|k| match k {
+                    0 => prop_oneof![
+                        Just(Expr::VarX),
+                        Just(Expr::VarY),
+                        any::<f32>().prop_map(Expr::Const)
+                    ]
+                    .boxed(),
+                    1 => prop_oneof![
+                        Just(Expr::VarX),
+                        Just(Expr::VarY),
+                        any::<f32>().prop_map(Expr::Const),
+                        any::<Monad>().prop_map(|op| Expr::Monad(op, 0)),
+                    ]
+                    .boxed(),
+                    _ => prop_oneof![
+                        Just(Expr::VarX),
+                        Just(Expr::VarY),
+                        any::<f32>().prop_map(Expr::Const),
+                        (any::<Monad>(), (0..k)).prop_map(|(op, i)| Expr::Monad(op, i)),
+                        (any::<Dyad>(), (0..k), (0..k)).prop_map(|(op, i, j)| Expr::Dyad(op, i, j)),
+                    ]
+                    .boxed(),
+                })
+                .collect_vec()
+        });
+        (header, exprs)
+            .prop_map(|(header, exprs)| Self { header, exprs })
+            .boxed()
+    }
 }
 
 impl Program {
@@ -337,7 +377,7 @@ pub enum ParseError {
     BadHex { line: usize, error: HexParseError },
     #[error("Incorrect line number at line {line}: found {value}")]
     LineNumber { line: usize, value: u16 },
-    #[error("An error occured in trying to parse an expression at line {line}: {error}")]
+    #[error("An error occurred in trying to parse an expression at line {line}: {error}")]
     BadExpr { line: usize, error: ExprParseError },
 }
 
@@ -346,6 +386,7 @@ impl<'a> Translator for &'a Parser {
     type Output = Program;
     type Error = ParseError;
     fn translate(&self, input: &'a str) -> Result<Program, ParseError> {
+        let start = Instant::now();
         let mut exprs = Vec::new();
         let mut lines = input.lines();
         let header = lines.next().ok_or(ParseError::EmptyProg)?.to_string();
@@ -366,6 +407,8 @@ impl<'a> Translator for &'a Parser {
                 return Err(ParseError::EmptyLine(line));
             }
         }
+        let elapsed = start.elapsed();
+        log::info!("Parsing: time = {elapsed:?}");
         Ok(Program { header, exprs })
     }
 }

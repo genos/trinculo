@@ -44,7 +44,7 @@ pub fn write_image(image_size: u32, bytes: Vec<u8>, p: impl AsRef<Path>) -> Resu
     Ok(())
 }
 
-/// Conver the image to a PNG's bytes (for testing).
+/// Convert the image to a PNG's bytes (for testing).
 ///
 /// # Errors
 /// If converting to PNG goes awry

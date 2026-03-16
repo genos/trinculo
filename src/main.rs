@@ -75,6 +75,7 @@ enum Error {
 }
 
 fn main() -> Result<(), Error> {
+    env_logger::init();
     let args = Args::parse();
     let image_size = u32::from(args.pixels);
     let input = read_prospero()?;
