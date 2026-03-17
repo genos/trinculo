@@ -9,8 +9,6 @@ use std::{collections::HashMap, time::Instant};
 pub struct Reuse;
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Error {
-    #[error("empty program")]
-    Empty,
     #[error("usize {0} too big to fit as a u16")]
     TooBig(usize),
 }
@@ -22,7 +20,7 @@ impl Translator for Reuse {
     fn translate(&self, prog: Program) -> Result<Program, Error> {
         let start = Instant::now();
         if prog.is_empty() {
-            Err(Error::Empty)
+            Ok(prog)
         } else {
             let size = prog.exprs.len();
             let (mut exprs, mut ix, mut lookup) = (
@@ -96,6 +94,7 @@ mod tests {
     }
 
     #[rstest]
+    #[case("# empty\n", "# empty\n")]
     #[case(
         "# add comm\n_0 var-x\n_1 var-y\n_2 add _0 _1\n_3 add _1 _0",
         "# add comm\n_0 var-x\n_1 var-y\n_2 add _0 _1"
@@ -115,17 +114,6 @@ mod tests {
         assert!(q.is_ok());
         let q = q.unwrap();
         assert_eq!(o, q);
-    }
-
-    #[test]
-    fn reuse_empty() {
-        let p = Program {
-            header: "empty".to_string(),
-            exprs: Vec::new(),
-        };
-        let o = Reuse.translate(p);
-        assert!(o.is_err());
-        assert_eq!(o.unwrap_err(), Error::Empty);
     }
 
     #[test]
