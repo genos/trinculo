@@ -30,7 +30,20 @@ codegen-units = 1
 incremental = false
 panic = "abort"
 
+[[bench]]
+name = "parse"
+harness = false
+
+[[bench]]
+name = "baseline"
+harness = false
+
+[[bench]]
+name = "reuse"
+harness = false
+
 [dev-dependencies]
+criterion = "0.8.2"
 insta = "1.46.3"
 proptest = "1.10.0"
 proptest-derive = "0.8.0"

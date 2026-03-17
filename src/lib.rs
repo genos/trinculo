@@ -28,3 +28,6 @@ pub mod baseline;
 pub mod expr;
 pub mod reuse;
 pub mod utils;
+
+pub use expr::parse;
+pub use utils::{read_prospero, write_image};
