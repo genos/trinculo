@@ -1,4 +1,4 @@
-//! Baseline interpretation of [`expr::Expr`] into [u8].
+//! Baseline interpretation of [`Expr`] into a vector of [u8]s.
 
 use crate::{
     Interpreter,
@@ -6,8 +6,11 @@ use crate::{
 };
 use std::time::Instant;
 
+/// Baseline interpreter; given an image size (in pixels per side), the [`Interpreter`] instance
+/// will interpret the [`Expr`]s listed in a  [`Program`] serially.
 pub struct Baseline(pub u32);
 
+/// Errors that can arise when interpreting a [`Program`] with a [`Baseline`] interpreter.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("u32 size is too large to fit into a usize: {0}")]
