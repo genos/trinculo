@@ -1,10 +1,7 @@
 use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 use trinculo::{
-    Interpreter, Translator, baseline,
-    expr::{self, parse},
-    reuse,
-    utils::{self, read_prospero, write_image},
+    Interpreter, Translator, baseline, expr, parse, read_prospero, reuse, utils, write_image,
 };
 
 /// Pixel size to render

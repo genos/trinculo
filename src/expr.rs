@@ -290,7 +290,7 @@ pub struct Program {
 impl proptest::arbitrary::Arbitrary for Program {
     type Parameters = ();
     type Strategy = proptest::prelude::BoxedStrategy<Self>;
-    fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
+    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
         let header = any::<String>();
         let exprs = (0..1000u16).prop_flat_map(|n| {
@@ -524,7 +524,7 @@ mod tests {
         }
 
         #[test]
-        fn expr_u64_nzm(op in 0u64..3, x in 0u64..(1<<16), y in 0u64..(1<<16)) {
+        fn expr_u64_nzm(op in 0u64..3, x in 0u64..(1<<16), y in 1u64..(1<<16)) {
             let x = Expr::try_from(4 | (op << 3) | (x << 32) | (y << 48));
             prop_assert_eq!(x, Err(ExprU64Error::NzM(y << 48)));
         }

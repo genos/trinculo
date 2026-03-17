@@ -7,8 +7,10 @@ use crate::{
 use std::{collections::HashMap, time::Instant};
 
 pub struct Reuse;
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Error {
+    #[error("empty program")]
+    Empty,
     #[error("usize {0} too big to fit as a u16")]
     TooBig(usize),
 }
@@ -20,7 +22,7 @@ impl Translator for Reuse {
     fn translate(&self, prog: Program) -> Result<Program, Error> {
         let start = Instant::now();
         if prog.is_empty() {
-            Ok(prog)
+            Err(Error::Empty)
         } else {
             let size = prog.exprs.len();
             let (mut exprs, mut ix, mut lookup) = (
@@ -83,11 +85,12 @@ mod tests {
 
         #[test]
         fn reuse_shortens(p: Program) {
-            let o = Reuse.translate(p.clone());
-            prop_assert!(o.is_ok());
-            let o = o.unwrap();
-            prop_assert_eq!(p.is_empty(), o.is_empty());
-            prop_assert!(p.len() >= o.len());
+            if !p.is_empty() {
+                let o = Reuse.translate(p.clone());
+                prop_assert!(o.is_ok());
+                let o = o.unwrap();
+                prop_assert!(p.len() >= o.len());
+            }
         }
 
     }
@@ -112,5 +115,28 @@ mod tests {
         assert!(q.is_ok());
         let q = q.unwrap();
         assert_eq!(o, q);
+    }
+
+    #[test]
+    fn reuse_empty() {
+        let p = Program {
+            header: "empty".to_string(),
+            exprs: Vec::new(),
+        };
+        let o = Reuse.translate(p);
+        assert!(o.is_err());
+        assert_eq!(o.unwrap_err(), Error::Empty);
+    }
+
+    #[test]
+    fn reuse_too_big() {
+        let n = 65536;
+        let p = Program {
+            header: "too big".to_string(),
+            exprs: (0..=n).map(|i| Expr::Const(i as f32)).collect(),
+        };
+        let o = Reuse.translate(p);
+        assert!(o.is_err());
+        assert_eq!(o.unwrap_err(), Error::TooBig(n));
     }
 }
