@@ -1,4 +1,4 @@
-//! Common utilities
+//! Common utilities.
 use image::{GrayImage, ImageFormat};
 use std::{
     fs,
@@ -6,6 +6,7 @@ use std::{
     path::Path,
 };
 
+/// Errors that can arise from using one of these utility functions.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("IO error: {0}")]
@@ -16,7 +17,7 @@ pub enum Error {
     Image(#[from] image::ImageError),
 }
 
-/// Read the input Prospero program
+/// Read the input Prospero program.
 ///
 /// # Errors
 /// If something goes wrong in trying to read the file.
@@ -27,7 +28,7 @@ pub fn read_prospero() -> Result<String, Error> {
     ))?)
 }
 
-/// Convert the bytes into an image
+/// Convert the bytes into an image.
 ///
 /// # Errors
 /// If the size is too large.
@@ -47,7 +48,7 @@ pub fn write_image(image_size: u32, bytes: Vec<u8>, p: impl AsRef<Path>) -> Resu
 /// Convert the image to a PNG's bytes (for testing).
 ///
 /// # Errors
-/// If converting to PNG goes awry
+/// If converting to PNG goes awry.
 pub fn to_png(image: &GrayImage) -> Result<Vec<u8>, Error> {
     let mut bytes = Cursor::new(Vec::new());
     image.write_to(&mut bytes, ImageFormat::Png)?;

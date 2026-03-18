@@ -1,4 +1,4 @@
-//! Reuse previously seen expressions (similar to hash-consing or global value numbering)
+//! Reuse previously seen expressions (similar to hash-consing or global value numbering).
 
 use crate::{
     Translator,
@@ -6,7 +6,10 @@ use crate::{
 };
 use std::{collections::HashMap, time::Instant};
 
+/// Just a unit struct, a place to hang our [Translator] instance.
 pub struct Reuse;
+
+/// Errors that can arise when trying to translate a [`Program`].
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Error {
     #[error("usize {0} too big to fit as a u16")]
@@ -117,6 +120,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::cast_precision_loss)]
     fn reuse_too_big() {
         let n = 65536;
         let p = Program {

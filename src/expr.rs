@@ -1,4 +1,4 @@
-//! Expressions.
+//! Expressions and Programs made out of them.
 use crate::Translator;
 use itertools::Itertools;
 use std::{
@@ -8,6 +8,7 @@ use std::{
     time::Instant,
 };
 
+/// A dyadic (A.K.A. binary) operation.
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
 #[strum(serialize_all = "lowercase")]
@@ -25,6 +26,7 @@ impl fmt::Debug for Dyad {
     }
 }
 
+/// A monadic (A.K.A. unary) operation.
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
 #[strum(serialize_all = "lowercase")]
@@ -40,6 +42,20 @@ impl fmt::Debug for Monad {
     }
 }
 
+/// An expression is either:
+/// - the input variable _x_,
+/// - the input variable _y_,
+/// - a constant floating point value,
+/// - a [`Dyad`] (A.K.A. binary operation),
+/// - or a [`Monad`] (A.K.A. unary operation).
+///
+/// For the latter two, the [u16]s correspond to an index referring to a previous expression in a
+/// [`Program`].
+///
+/// Because an [`Expr`] is small enough to fit into 64 bits, and to sidestep the ordering,
+/// equality, and other issues associated with floating point values, all of the equality,
+/// ordering, and hashing traits for an [`Expr`] are based off of its representation as a [u64] via
+/// the `<u64 as From<Expr>>::from` implementation.
 #[derive(Clone, Copy)]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Expr {
@@ -123,6 +139,7 @@ impl From<&Expr> for u64 {
     }
 }
 
+/// Errors that can arise when trying to parse a [u64] as an [`Expr`].
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ExprU64Error {
     #[error("Junk bits should be zero: {0:b}")]
@@ -198,7 +215,7 @@ impl fmt::Debug for Expr {
     }
 }
 
-/// Errors that can arise when trying to parse a hex u16
+/// Errors that can arise when trying to parse a hex [u16].
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum HexParseError {
     #[error("Hex value missing leading underscore: {0}")]
@@ -219,7 +236,7 @@ fn hex(t: &str) -> Result<u16, HexParseError> {
     u16::try_from(j).map_err(|_| HexParseError::TooBig(j))
 }
 
-/// Errors that can arise when trying to parse an expression
+/// Errors that can arise when trying to parse an expression.
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ExprParseError {
     #[error("Missing an operation")]
@@ -256,7 +273,9 @@ impl FromStr for Expr {
                 Ok(Self::Const(x))
             }
             "add" | "sub" | "mul" | "max" | "min" => {
-                let op = Dyad::from_str(t).unwrap_or_else(|_| panic!("add|sub|mul|max|min: {t}"));
+                let Ok(op) = Dyad::from_str(t) else {
+                    unreachable!("add|sub|mul|max|min: {t}")
+                };
                 let x = hex(tokens.next().ok_or(ExprParseError::DyadMissing(op))?)?;
                 let y = hex(tokens.next().ok_or(ExprParseError::DyadMissing(op))?)?;
                 let rest = tokens.join(" ");
@@ -266,7 +285,9 @@ impl FromStr for Expr {
                 Ok(Self::Dyad(op, x, y))
             }
             "neg" | "square" | "sqrt" => {
-                let op = Monad::from_str(t).unwrap_or_else(|_| panic!("neg|square|sqrt: {t}"));
+                let Ok(op) = Monad::from_str(t) else {
+                    unreachable!("neg|square|sqrt: {t}")
+                };
                 let x = hex(tokens.next().ok_or(ExprParseError::MonadMissing(op))?)?;
                 let rest = tokens.join(" ");
                 if !rest.is_empty() {
@@ -279,7 +300,7 @@ impl FromStr for Expr {
     }
 }
 
-/// A collection of expressions, with a header string.
+/// A collection of [`Expr`] expressions, in order, with a header string.
 #[derive(PartialEq, Eq, Clone)]
 pub struct Program {
     pub header: String,
@@ -364,7 +385,7 @@ pub fn parse(s: &str) -> Result<Program, ParseError> {
 /// Just a unit struct, a place to hang our [Translator] instance.
 pub struct Parser;
 
-/// Errors that can arise when trying to parse a program
+/// Errors that can arise when trying to [`parse`] a [`Program`].
 #[derive(Debug, PartialEq, Eq, thiserror::Error)]
 pub enum ParseError {
     #[error("Empty program")]
