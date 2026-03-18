@@ -26,6 +26,7 @@ pub trait Interpreter {
 
 pub mod baseline;
 pub mod expr;
+pub mod reclaim;
 pub mod reuse;
 pub mod utils;
 
