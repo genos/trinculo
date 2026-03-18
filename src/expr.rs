@@ -491,7 +491,7 @@ mod tests {
         }
 
         #[test]
-        fn expr_has_eq(x: Expr, y: Expr) {
+        fn expr_hash_eq(x: Expr, y: Expr) {
             prop_assert_eq!(x == y, HashSet::from([x]) == HashSet::from([y]));
         }
 

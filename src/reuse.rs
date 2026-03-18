@@ -1,5 +1,4 @@
 //! Reuse previously seen expressions (similar to hash-consing or global value numbering).
-
 use crate::{
     Translator,
     expr::{Dyad, Expr, Monad, Program},

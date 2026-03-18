@@ -42,6 +42,10 @@ harness = false
 name = "reuse"
 harness = false
 
+[[bench]]
+name = "reclaim"
+harness = false
+
 [dev-dependencies]
 criterion = "0.8.2"
 insta = "1.46.3"
