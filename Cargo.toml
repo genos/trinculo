@@ -9,6 +9,7 @@ env_logger = "0.11.9"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 itertools = "0.14.0"
 log = "0.4.29"
+rayon = "1.11.0"
 strum = { version = "0.28.0", features = ["derive"] }
 thiserror = "2.0.18"
 
@@ -44,6 +45,10 @@ harness = false
 
 [[bench]]
 name = "reclaim"
+harness = false
+
+[[bench]]
+name = "thread_par"
 harness = false
 
 [dev-dependencies]

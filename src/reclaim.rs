@@ -172,6 +172,6 @@ mod tests {
         assert!(image.is_ok());
         let png = to_png(&image.unwrap());
         assert!(png.is_ok());
-        insta::assert_binary_snapshot!("small.png", png.unwrap());
+        insta::assert_binary_snapshot!("reclaim_16.png", png.unwrap());
     }
 }

@@ -39,7 +39,7 @@ impl Interpreter for Baseline {
     }
 }
 
-fn run(vx: f32, vy: f32, xs: &[Expr]) -> u8 {
+pub(crate) fn run(vx: f32, vy: f32, xs: &[Expr]) -> u8 {
     let mut out: Vec<f32> = Vec::with_capacity(xs.len());
     for &x in xs {
         out.push(match x {
@@ -89,6 +89,6 @@ mod tests {
         assert!(image.is_ok());
         let png = to_png(&image.unwrap());
         assert!(png.is_ok());
-        insta::assert_binary_snapshot!("small.png", png.unwrap());
+        insta::assert_binary_snapshot!("baseline_16.png", png.unwrap());
     }
 }

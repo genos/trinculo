@@ -28,6 +28,7 @@ pub mod baseline;
 pub mod expr;
 pub mod reclaim;
 pub mod reuse;
+pub mod thread_par;
 pub mod utils;
 
 pub use expr::parse;
