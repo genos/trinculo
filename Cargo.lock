@@ -1262,6 +1262,7 @@ dependencies = [
  "log",
  "proptest",
  "proptest-derive",
+ "rayon",
  "rstest",
  "strum",
  "tempfile",

@@ -2,8 +2,8 @@
 use clap::{Parser, ValueEnum};
 use std::path::PathBuf;
 use trinculo::{
-    Interpreter, Translator, baseline, expr, parse, read_prospero, reclaim, reuse, utils,
-    write_image,
+    Interpreter, Translator, baseline, expr, parse, read_prospero, reclaim, reuse, thread_par,
+    utils, write_image,
 };
 /// Pixel size to render
 #[derive(Debug, Clone, ValueEnum)]
@@ -37,6 +37,8 @@ enum Toolset {
     Reclaim,
     /// Reuse previously seen expressions, reclaim no longer used expressions
     ReuseReclaim,
+    /// Thread-based parallel interpretation
+    ThreadPar,
 }
 
 #[derive(Debug, Parser)]
@@ -66,6 +68,8 @@ enum Error {
     Baseline(#[from] baseline::Error),
     #[error("Reclaim translation error: {0}")]
     Reclaim(#[from] reclaim::Error),
+    #[error("Thread-Parallel interpretation error: {0}")]
+    ThreadPar(#[from] thread_par::Error),
 }
 
 fn main() -> Result<(), Error> {
@@ -87,6 +91,7 @@ fn main() -> Result<(), Error> {
             let r = reclaim::Reclaim(image_size);
             r.interpret(r.translate(reuse::Reuse.translate(program)?)?)?
         }
+        Toolset::ThreadPar => thread_par::ThreadParallel(image_size).interpret(program)?,
     };
     write_image(image_size, image, args.output)?;
     Ok(())
