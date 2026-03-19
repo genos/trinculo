@@ -1,10 +1,8 @@
 //! Reclaiming no longer used expressions, similar to [Max Bernstein's
-//! approach](https://bernsteinbear.com/blog/prospero/), but with first running the program through
-//! [`crate::reuse::Reuse`].
+//! approach](https://bernsteinbear.com/blog/prospero/).
 use crate::{
     Interpreter, Translator,
     expr::{Dyad, Expr, Monad, Program},
-    reuse::{self, Reuse},
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -30,8 +28,8 @@ pub struct ProgWithGC {
 ///  Reclaiming translator & interpreter.
 ///
 ///  Given an image size (in pixels per side), the [`Translator`] instance will turn a
-///  [`Reuse`]-translated version of the [`Program`] into a [`ProgWithGC`], while [`Interpreter`]
-///  instance will interpret the [`ExprOrDel`]s listed in that [`ProgWithGC`] serially.
+///  the [`Program`] into a [`ProgWithGC`], while [`Interpreter`] instance will interpret the
+///  [`ExprOrDel`]s listed in that [`ProgWithGC`] serially.
 pub struct Reclaim(pub u32);
 
 /// Errors that can arise when trying to translate or interpret a [`Program`].
@@ -39,8 +37,6 @@ pub struct Reclaim(pub u32);
 pub enum Error {
     #[error("u32 size is too large to fit into a usize: {0}")]
     TooBigSize(u32),
-    #[error("Reuse error: {0}")]
-    Reuse(#[from] reuse::Error),
 }
 
 impl Translator for Reclaim {
@@ -49,7 +45,6 @@ impl Translator for Reclaim {
     type Error = Error;
     fn translate(&self, prog: Program) -> Result<ProgWithGC, Error> {
         let start = Instant::now();
-        let prog = Reuse.translate(prog)?;
         let size = prog.exprs.len();
         let (mut seen, mut with_gc) = (
             HashSet::<u16>::with_capacity(size),

@@ -26,15 +26,17 @@ impl From<Pixels> for u32 {
     }
 }
 
-/// Which tool to use
+/// Which toolset to use
 #[derive(Debug, Clone, ValueEnum)]
-enum Tool {
+enum Toolset {
     /// No translation, baseline interpretation
     NopBaseline,
     /// Reuse previously seen expressions, baseline interpretation
     ReuseBaseline,
     /// Reclaiming no longer used expressions
     Reclaim,
+    /// Reuse previously seen expressions, reclaim no longer used expressions
+    ReuseReclaim,
 }
 
 #[derive(Debug, Parser)]
@@ -46,9 +48,9 @@ struct Args {
     /// Pixel size to render
     #[arg(short, long, default_value_t = Pixels::Normal, value_enum)]
     pixels: Pixels,
-    /// Which tool to use
+    /// Which toolset to use
     #[arg(short, long, value_enum)]
-    tool: Tool,
+    toolset: Toolset,
 }
 
 /// Errors
@@ -72,14 +74,18 @@ fn main() -> Result<(), Error> {
     let image_size = u32::from(args.pixels);
     let input = read_prospero()?;
     let program = parse(&input)?;
-    let image = match args.tool {
-        Tool::NopBaseline => baseline::Baseline(image_size).interpret(program)?,
-        Tool::ReuseBaseline => {
+    let image = match args.toolset {
+        Toolset::NopBaseline => baseline::Baseline(image_size).interpret(program)?,
+        Toolset::ReuseBaseline => {
             baseline::Baseline(image_size).interpret(reuse::Reuse.translate(program)?)?
         }
-        Tool::Reclaim => {
+        Toolset::Reclaim => {
             let r = reclaim::Reclaim(image_size);
             r.interpret(r.translate(program)?)?
+        }
+        Toolset::ReuseReclaim => {
+            let r = reclaim::Reclaim(image_size);
+            r.interpret(r.translate(reuse::Reuse.translate(program)?)?)?
         }
     };
     write_image(image_size, image, args.output)?;
