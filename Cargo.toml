@@ -5,11 +5,10 @@ edition = "2024"
 
 [dependencies]
 clap = { version = "4.6.0", features = ["derive"] }
-env_logger = "0.11.9"
 image = { version = "0.25.10", default-features = false, features = ["png"] }
-itertools = "0.14.0"
 log = "0.4.29"
 rayon = "1.11.0"
+simple_logger = "5.2.0"
 strum = { version = "0.28.0", features = ["derive"] }
 thiserror = "2.0.18"
 
@@ -36,19 +35,11 @@ name = "parse"
 harness = false
 
 [[bench]]
-name = "baseline"
+name = "translate"
 harness = false
 
 [[bench]]
-name = "reuse"
-harness = false
-
-[[bench]]
-name = "reclaim"
-harness = false
-
-[[bench]]
-name = "thread_par"
+name = "interpret"
 harness = false
 
 [dev-dependencies]

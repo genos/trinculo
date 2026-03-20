@@ -1,8 +1,8 @@
 //! Reclaiming no longer used expressions, similar to [Max Bernstein's
 //! approach](https://bernsteinbear.com/blog/prospero/).
 use crate::{
-    Interpreter, Translator,
-    expr::{Dyad, Expr, Monad, Program},
+    Interpreter, Translator, baseline,
+    expr::{Expr, Program},
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -30,14 +30,11 @@ pub struct ProgWithGC {
 ///  Given an image size (in pixels per side), the [`Translator`] instance will turn a
 ///  the [`Program`] into a [`ProgWithGC`], while [`Interpreter`] instance will interpret the
 ///  [`ExprOrDel`]s listed in that [`ProgWithGC`] serially.
-pub struct Reclaim(pub u32);
+pub struct Reclaim(pub u16);
 
 /// Errors that can arise when trying to translate or interpret a [`Program`].
 #[derive(Debug, thiserror::Error, PartialEq, Eq)]
-pub enum Error {
-    #[error("u32 size is too large to fit into a usize: {0}")]
-    TooBigSize(u32),
-}
+pub enum Error {}
 
 impl Translator for Reclaim {
     type Input = Program;
@@ -89,15 +86,15 @@ impl Translator for Reclaim {
     }
 }
 
+/// Follows the same setup as the [`crate::baseline::Baseline`] interpreter
 impl Interpreter for Reclaim {
     type Input = ProgWithGC;
     type Error = Error;
-    /// Follows the same setup as the [`crate::baseline::Baseline`] interpreter
     #[allow(clippy::cast_precision_loss)]
     fn interpret(&self, p: ProgWithGC) -> Result<Vec<u8>, Error> {
         let start = Instant::now();
-        let image_size = usize::try_from(self.0).map_err(|_| Error::TooBigSize(self.0))?;
-        let half_image_size = (self.0 / 2) as f32;
+        let image_size = usize::from(self.0);
+        let half_image_size = f32::from(self.0 / 2);
         let mut out = vec![0u8; image_size * image_size];
         out.iter_mut().enumerate().for_each(|(i, b)| {
             let (x, y) = (i % image_size, i / image_size);
@@ -111,7 +108,6 @@ impl Interpreter for Reclaim {
     }
 }
 
-/// Directly apply all the expressions in sequence.
 fn run(vx: f32, vy: f32, xs: &mut HashMap<usize, ExprOrDel>) -> u8 {
     let mut out: Vec<f32> = Vec::with_capacity(xs.len());
     for i in 0..xs.len() {
@@ -120,29 +116,7 @@ fn run(vx: f32, vy: f32, xs: &mut HashMap<usize, ExprOrDel>) -> u8 {
                 xs.remove(&usize::from(j));
             }
             ExprOrDel::Expr(e) => {
-                out.push(match e {
-                    Expr::VarX => vx,
-                    Expr::VarY => vy,
-                    Expr::Const(x) => x,
-                    Expr::Dyad(op, x, y) => {
-                        let (x, y) = (out[usize::from(x)], out[usize::from(y)]);
-                        match op {
-                            Dyad::Add => x + y,
-                            Dyad::Sub => x - y,
-                            Dyad::Mul => x * y,
-                            Dyad::Max => x.max(y),
-                            Dyad::Min => x.min(y),
-                        }
-                    }
-                    Expr::Monad(op, x) => {
-                        let x = out[usize::from(x)];
-                        match op {
-                            Monad::Neg => -x,
-                            Monad::Square => x * x,
-                            Monad::Sqrt => x.sqrt(),
-                        }
-                    }
-                });
+                out.push(baseline::step(vx, vy, e, &out));
             }
         }
     }

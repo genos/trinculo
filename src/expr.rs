@@ -1,6 +1,5 @@
 //! Expressions and Programs made out of them.
 use crate::Translator;
-use itertools::Itertools;
 use std::{
     fmt,
     hash::{Hash, Hasher},
@@ -278,7 +277,7 @@ impl FromStr for Expr {
                 };
                 let x = hex(tokens.next().ok_or(ExprParseError::DyadMissing(op))?)?;
                 let y = hex(tokens.next().ok_or(ExprParseError::DyadMissing(op))?)?;
-                let rest = tokens.join(" ");
+                let rest = tokens.collect::<Vec<_>>().join(" ");
                 if !rest.is_empty() {
                     return Err(ExprParseError::Extra(rest));
                 }
@@ -289,7 +288,7 @@ impl FromStr for Expr {
                     unreachable!("neg|square|sqrt: {t}")
                 };
                 let x = hex(tokens.next().ok_or(ExprParseError::MonadMissing(op))?)?;
-                let rest = tokens.join(" ");
+                let rest = tokens.collect::<Vec<_>>().join(" ");
                 if !rest.is_empty() {
                     return Err(ExprParseError::Extra(rest));
                 }
@@ -339,7 +338,7 @@ impl proptest::arbitrary::Arbitrary for Program {
                     ]
                     .boxed(),
                 })
-                .collect_vec()
+                .collect::<Vec<_>>()
         });
         (header, exprs)
             .prop_map(|(header, exprs)| Self { header, exprs })

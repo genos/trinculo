@@ -1,0 +1,6 @@
+---
+source: src/simd_par.rs
+expression: png.unwrap()
+extension: png
+snapshot_kind: binary
+---
