@@ -32,7 +32,8 @@ pub fn read_prospero() -> Result<String, Error> {
 ///
 /// # Errors
 /// If the size is too large.
-pub fn to_image(image_size: u32, bytes: Vec<u8>) -> Result<GrayImage, Error> {
+pub fn to_image(image_size: u16, bytes: Vec<u8>) -> Result<GrayImage, Error> {
+    let image_size = u32::from(image_size);
     GrayImage::from_raw(image_size, image_size, bytes).ok_or(Error::ImageSize(image_size))
 }
 
@@ -40,7 +41,7 @@ pub fn to_image(image_size: u32, bytes: Vec<u8>) -> Result<GrayImage, Error> {
 ///
 /// # Errors
 /// If the size is too large, or something else goes wrong in writing the image.
-pub fn write_image(image_size: u32, bytes: Vec<u8>, p: impl AsRef<Path>) -> Result<(), Error> {
+pub fn write_image(image_size: u16, bytes: Vec<u8>, p: impl AsRef<Path>) -> Result<(), Error> {
     to_image(image_size, bytes)?.save(p)?;
     Ok(())
 }

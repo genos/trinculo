@@ -2,6 +2,7 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
+#![feature(portable_simd)]
 
 /// Translates input to output, while perhaps dealing with errors.
 pub trait Translator {
@@ -25,9 +26,11 @@ pub trait Interpreter {
 }
 
 pub mod baseline;
+pub mod combo_par;
 pub mod expr;
 pub mod reclaim;
 pub mod reuse;
+pub mod simd_par;
 pub mod thread_par;
 pub mod utils;
 

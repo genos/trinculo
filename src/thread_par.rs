@@ -5,16 +5,11 @@ use std::time::Instant;
 
 /// Thread-based parallel interpreter; given an image size (in pixels per side), the
 /// [`Interpreter`] instance will interpret the [`Expr`]s listed in a [`Program`] in parallel.
-pub struct ThreadParallel(pub u32);
+pub struct ThreadParallel(pub u16);
 
-/// Errors that can arise when interpreting a [`Program`] with a [`Parallel`] interpreter.
+/// Errors that can arise when interpreting a [`Program`] with a [`ThreadParallel`] interpreter.
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("u32 size is too large to fit into a usize: {0}")]
-    TooBigSize(u32),
-    #[error("u32 size is too large to fit half of it into an f32: {0}")]
-    TooBigF32(u32),
-}
+pub enum Error {}
 
 /// Reuses [`crate::baseline`]'s internal `run()` function for any given pixel.
 impl Interpreter for ThreadParallel {
@@ -23,8 +18,8 @@ impl Interpreter for ThreadParallel {
     #[allow(clippy::cast_precision_loss)]
     fn interpret(&self, p: Program) -> Result<Vec<u8>, Error> {
         let start = Instant::now();
-        let image_size = usize::try_from(self.0).map_err(|_| Error::TooBigSize(self.0))?;
-        let half_image_size = (self.0 / 2) as f32;
+        let image_size = usize::from(self.0);
+        let half_image_size = f32::from(self.0 / 2);
         let mut out = vec![0u8; image_size * image_size];
         out.par_iter_mut().enumerate().for_each(|(i, b)| {
             let (x, y) = (i % image_size, i / image_size);
