@@ -1,5 +1,5 @@
 //! Render the Prospero quote
-use clap::{Parser, ValueEnum};
+use argh::{FromArgs, FromArgValue};
 use std::path::PathBuf;
 use trinculo::{
     Interpreter, Translator, baseline, combo_par, expr, parse, read_prospero, reclaim, reuse,
@@ -7,7 +7,7 @@ use trinculo::{
 };
 
 /// Pixel size to render.
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, FromArgValue)]
 enum Pixels {
     /// 256 pixels
     Small,
@@ -28,7 +28,7 @@ impl From<Pixels> for u16 {
 }
 
 /// Which toolset to use.
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, FromArgValue)]
 enum Toolset {
     /// No translation, baseline interpretation.
     NopBaseline,
@@ -53,17 +53,17 @@ enum Toolset {
     ReuseComboPar,
 }
 
-#[derive(Debug, Parser)]
-#[command(version, about = "Render the Prospero quote", long_about = None)]
+/// Render the Prospero quote
+#[derive(FromArgs)]
 struct Args {
-    /// Where to write the output.
-    #[arg(short, long)]
+    /// where to write the output
+    #[argh(option, short = 'o')]
     output: PathBuf,
-    /// Pixel size to render.
-    #[arg(short, long, default_value_t = Pixels::Normal, value_enum)]
+    /// pixel size to render
+    #[argh(option, short = 'p')]
     pixels: Pixels,
-    /// Which toolset to use.
-    #[arg(short, long, value_enum)]
+    /// which toolset to use
+    #[argh(option, short = 't')]
     toolset: Toolset,
 }
 
@@ -92,7 +92,7 @@ enum Error {
 
 fn main() -> Result<(), Error> {
     simple_logger::init_with_env()?;
-    let args = Args::parse();
+    let args: Args = argh::from_env();
     let image_size = u16::from(args.pixels);
     let input = read_prospero()?;
     let program = parse(&input)?;
