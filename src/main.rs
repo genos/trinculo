@@ -70,6 +70,8 @@ struct Args {
 /// Errors
 #[derive(Debug, thiserror::Error)]
 enum Error {
+    #[error("Log error: {0}")]
+    Log(#[from] log::SetLoggerError),
     #[error("Utils error: {0}")]
     Utils(#[from] utils::Error),
     #[error("Parsing error: {0}")]
@@ -89,7 +91,7 @@ enum Error {
 }
 
 fn main() -> Result<(), Error> {
-    env_logger::init();
+    simple_logger::init_with_env()?;
     let args = Args::parse();
     let image_size = u16::from(args.pixels);
     let input = read_prospero()?;
