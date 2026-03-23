@@ -1,5 +1,5 @@
 //! Render the Prospero quote
-use argh::{FromArgs, FromArgValue};
+use argh::{FromArgValue, FromArgs};
 use std::path::PathBuf;
 use trinculo::{
     Interpreter, Translator, baseline, combo_par, expr, parse, read_prospero, reclaim, reuse,
@@ -27,30 +27,21 @@ impl From<Pixels> for u16 {
     }
 }
 
-/// Which toolset to use.
+/// Which translation(s) to use.
 #[derive(Debug, Clone, FromArgValue)]
-enum Toolset {
-    /// No translation, baseline interpretation.
-    NopBaseline,
-    /// Reuse previously seen expressions, baseline interpretation.
-    ReuseBaseline,
-    /// Reclaiming no longer used expressions.
-    NopReclaim,
-    /// Reuse previously seen expressions, reclaim no longer used expressions.
-    ReuseReclaim,
-    /// Thread-based parallel interpretation.
-    NopThreadPar,
-    /// SIMD-based parallel interpretation.
-    NopSimdPar,
-    /// Combination of SIMD- and thread-based parallel interpretation.
-    NopComboPar,
-    /// Reuse previously seen expressions, Thread-based parallel interpretation.
-    ReuseThreadPar,
-    /// Reuse previously seen expressions, SIMD-based parallel interpretation.
-    ReuseSimdPar,
-    /// Reuse previously seen expressions, combination of SIMD- and thread-based parallel
-    /// interpretation.
-    ReuseComboPar,
+enum Translation {
+    Nop,
+    Reuse,
+}
+
+/// Which interpretation to use.
+#[derive(Debug, Clone, FromArgValue)]
+enum Interpretation {
+    Baseline,
+    Reclaim,
+    ThreadPar,
+    SimdPar,
+    ComboPar,
 }
 
 /// Render the Prospero quote
@@ -62,9 +53,12 @@ struct Args {
     /// pixel size to render
     #[argh(option, short = 'p')]
     pixels: Pixels,
-    /// which toolset to use
+    /// which translation(s) to use
     #[argh(option, short = 't')]
-    toolset: Toolset,
+    translations: Vec<Translation>,
+    /// which interpretation to use
+    #[argh(option, short = 'i')]
+    interpretation: Interpretation,
 }
 
 /// Errors
@@ -95,32 +89,22 @@ fn main() -> Result<(), Error> {
     let args: Args = argh::from_env();
     let image_size = u16::from(args.pixels);
     let input = read_prospero()?;
-    let program = parse(&input)?;
-    let image = match args.toolset {
-        Toolset::NopBaseline => baseline::Baseline(image_size).interpret(program)?,
-        Toolset::ReuseBaseline => {
-            baseline::Baseline(image_size).interpret(reuse::Reuse.translate(program)?)?
+    let mut program = parse(&input)?;
+    for t in args.translations {
+        match t {
+            Translation::Nop => (),
+            Translation::Reuse => program = reuse::Reuse.translate(program)?,
         }
-        Toolset::NopReclaim => {
+    }
+    let image = match args.interpretation {
+        Interpretation::Baseline => baseline::Baseline(image_size).interpret(program)?,
+        Interpretation::Reclaim => {
             let r = reclaim::Reclaim(image_size);
             r.interpret(r.translate(program)?)?
         }
-        Toolset::ReuseReclaim => {
-            let r = reclaim::Reclaim(image_size);
-            r.interpret(r.translate(reuse::Reuse.translate(program)?)?)?
-        }
-        Toolset::NopThreadPar => thread_par::ThreadParallel(image_size).interpret(program)?,
-        Toolset::NopSimdPar => simd_par::SimdParallel(image_size).interpret(program)?,
-        Toolset::NopComboPar => combo_par::ComboParallel(image_size).interpret(program)?,
-        Toolset::ReuseThreadPar => {
-            thread_par::ThreadParallel(image_size).interpret(reuse::Reuse.translate(program)?)?
-        }
-        Toolset::ReuseSimdPar => {
-            simd_par::SimdParallel(image_size).interpret(reuse::Reuse.translate(program)?)?
-        }
-        Toolset::ReuseComboPar => {
-            combo_par::ComboParallel(image_size).interpret(reuse::Reuse.translate(program)?)?
-        }
+        Interpretation::ThreadPar => thread_par::ThreadParallel(image_size).interpret(program)?,
+        Interpretation::SimdPar => simd_par::SimdParallel(image_size).interpret(program)?,
+        Interpretation::ComboPar => combo_par::ComboParallel(image_size).interpret(program)?,
     };
     write_image(image_size, image, args.output)?;
     Ok(())
