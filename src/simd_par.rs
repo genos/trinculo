@@ -9,8 +9,10 @@ use std::{
     time::Instant,
 };
 
-/// SIMD-based parallel interpreter; given an image size (in pixels per side), the
-/// [`Interpreter`] instance will interpret the [`Expr`]s listed in a [`Program`] in parallel.
+/// SIMD-based parallel interpreter.
+///
+/// Given an image size (in pixels per side), the [`Interpreter`] instance will interpret the
+/// [`Expr`]s listed in a [`Program`] in parallel.
 pub struct SimdParallel(pub u16);
 
 const N: usize = 64;

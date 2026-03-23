@@ -1,10 +1,12 @@
-//! Thread-based parallel interpretation of [`Expr`]s.
+//! Thread-based parallel interpretation of [`crate::expr::Expr`]s.
 use crate::{Interpreter, baseline, expr::Program};
 use rayon::prelude::*;
 use std::time::Instant;
 
-/// Thread-based parallel interpreter; given an image size (in pixels per side), the
-/// [`Interpreter`] instance will interpret the [`Expr`]s listed in a [`Program`] in parallel.
+/// Thread-based parallel interpreter.
+///
+/// Given an image size (in pixels per side), the [`Interpreter`] instance will interpret the
+/// [`crate::expr::Expr`]s listed in a [`Program`] in parallel.
 pub struct ThreadParallel(pub u16);
 
 /// Errors that can arise when interpreting a [`Program`] with a [`ThreadParallel`] interpreter.
