@@ -1,11 +1,12 @@
-//! A combination of SIMD- and thread-based parallel interpretation of [`Expr`]s.
+//! A combination of SIMD- and thread-based parallel interpretation of [`crate::expr::Expr`]s.
 use crate::{Interpreter, expr::Program, simd_par};
 use rayon::prelude::*;
 use std::{simd::prelude::*, time::Instant};
 
-/// Combination of SIMD- and thread-based parallel interpreter; given an image size (in pixels per
-/// side), the [`Interpreter`] instance will interpret the [`Expr`]s listed in a [`Program`] in
-/// parallel.
+/// Combination of SIMD- and thread-based parallel interpreter.
+///
+/// Given an image size (in pixels per side), the [`Interpreter`] instance will interpret the
+/// [`crate::expr::Expr`]s listed in a [`Program`] in parallel.
 pub struct ComboParallel(pub u16);
 
 const N: usize = 64;

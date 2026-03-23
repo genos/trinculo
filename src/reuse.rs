@@ -20,10 +20,10 @@ impl Translator for Reuse {
     type Output = Program;
     type Error = Error;
     fn translate(&self, prog: Program) -> Result<Program, Error> {
-        let start = Instant::now();
         if prog.is_empty() {
             Ok(prog)
         } else {
+            let start = Instant::now();
             let size = prog.exprs.len();
             let (mut exprs, mut ix, mut lookup) = (
                 Vec::<Expr>::with_capacity(size),
@@ -85,12 +85,20 @@ mod tests {
 
         #[test]
         fn reuse_shortens(p: Program) {
-            if !p.is_empty() {
-                let o = Reuse.translate(p.clone());
-                prop_assert!(o.is_ok());
-                let o = o.unwrap();
-                prop_assert!(p.len() >= o.len());
-            }
+            let o = Reuse.translate(p.clone());
+            prop_assert!(o.is_ok());
+            let o = o.unwrap();
+            prop_assert!(p.len() >= o.len());
+        }
+
+        #[test]
+        fn reuse_idempotent(p: Program) {
+            let q = Reuse.translate(p);
+            prop_assert!(q.is_ok());
+            let q = q.unwrap();
+            let r = Reuse.translate(q.clone());
+            prop_assert!(r.is_ok());
+            prop_assert_eq!(r.unwrap(), q);
         }
 
     }

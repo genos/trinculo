@@ -9,7 +9,7 @@ use std::{
 
 /// A dyadic (A.K.A. binary) operation.
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, strum::Display, strum::EnumString)]
 #[strum(serialize_all = "lowercase")]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Dyad {
@@ -27,7 +27,7 @@ impl fmt::Debug for Dyad {
 
 /// A monadic (A.K.A. unary) operation.
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, strum::Display, strum::EnumString)]
 #[strum(serialize_all = "lowercase")]
 #[cfg_attr(test, derive(proptest_derive::Arbitrary))]
 pub enum Monad {
@@ -159,7 +159,6 @@ pub enum ExprU64Error {
     Tag(u64),
 }
 
-#[allow(clippy::cast_possible_truncation)]
 impl TryFrom<u64> for Expr {
     type Error = ExprU64Error;
     fn try_from(n: u64) -> Result<Self, Self::Error> {
@@ -624,9 +623,9 @@ mod tests {
         let input = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/prospero.vm"));
         assert!(input.is_ok());
         let input = input.unwrap();
-        let exprs = parse(&input);
-        assert!(exprs.is_ok());
-        let exprs = exprs.unwrap();
-        insta::assert_snapshot!("prospero.vm", exprs);
+        let prog = parse(&input);
+        assert!(prog.is_ok());
+        let prog = prog.unwrap();
+        insta::assert_snapshot!("prospero.vm", prog);
     }
 }
