@@ -26,15 +26,15 @@ impl Translator for Reuse {
             let start = Instant::now();
             let size = prog.exprs.len();
             let (mut exprs, mut ix, mut lookup) = (
-                Vec::<Expr>::with_capacity(size),
-                Vec::<u16>::with_capacity(size),
-                HashMap::<Expr, u16>::with_capacity(size),
+                Vec::with_capacity(size),
+                Vec::with_capacity(size),
+                HashMap::with_capacity(size),
             );
             for e in prog.exprs {
                 let f = match e {
                     Expr::VarX | Expr::VarY | Expr::Const(_) => e,
                     Expr::Dyad(op, x, y) => {
-                        let (a, b) = (ix[usize::from(x)], ix[usize::from(y)]);
+                        let (a, b): (u16, u16) = (ix[usize::from(x)], ix[usize::from(y)]);
                         match op {
                             Dyad::Add | Dyad::Mul | Dyad::Max | Dyad::Min => {
                                 // commutativity
@@ -77,7 +77,7 @@ impl Translator for Reuse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::expr::parse;
+    use crate::{expr::parse, utils::read_prospero};
     use proptest::prelude::*;
     use rstest::*;
 
@@ -101,6 +101,15 @@ mod tests {
             prop_assert_eq!(r.unwrap(), q);
         }
 
+    }
+
+    #[test]
+    fn reuse_on_prospero() {
+        let input = read_prospero();
+        assert!(input.is_ok());
+        let p = parse(&input.unwrap());
+        assert!(p.is_ok());
+        assert!(Reuse.translate(p.unwrap()).is_ok());
     }
 
     #[rstest]

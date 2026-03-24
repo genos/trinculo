@@ -42,7 +42,7 @@ impl Interpreter for SimdParallel {
 }
 
 pub(crate) fn exec(i: usize, c: &mut [u8], exprs: &[Expr], size: &Simd<usize, N>) {
-    let half_image_size: Simd<f32, N> = (size >> 1).cast();
+    let half_image_size = (size >> 1).cast::<f32>();
     let xy = Simd::splat(i * N) + *IOTA;
     let (x, y) = (xy % size, xy / size);
     let vx = x.cast() / half_image_size - ONE;
@@ -52,7 +52,7 @@ pub(crate) fn exec(i: usize, c: &mut [u8], exprs: &[Expr], size: &Simd<usize, N>
 
 /// Translation of [`crate::baseline::run`]
 fn run(vx: Simd<f32, N>, vy: Simd<f32, N>, xs: &[Expr]) -> Simd<u8, N> {
-    let mut out: Vec<Simd<f32, N>> = Vec::with_capacity(xs.len());
+    let mut out = Vec::with_capacity(xs.len());
     for &x in xs {
         out.push(step(vx, vy, x, &out));
     }

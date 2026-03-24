@@ -43,10 +43,7 @@ impl Translator for Reclaim {
     fn translate(&self, prog: Program) -> Result<ProgWithGC, Error> {
         let start = Instant::now();
         let size = prog.exprs.len();
-        let (mut seen, mut with_gc) = (
-            HashSet::<u16>::with_capacity(size),
-            Vec::with_capacity(2 * size),
-        );
+        let (mut seen, mut with_gc) = (HashSet::with_capacity(size), Vec::with_capacity(2 * size));
         // Walk backward from end, recording the last time a monadic or dyadic expr is seen, not
         // counting the very last instruction (needless gc).
         for x in prog.exprs.into_iter().rev() {
@@ -109,7 +106,7 @@ impl Interpreter for Reclaim {
 }
 
 fn run(vx: f32, vy: f32, xs: &mut HashMap<usize, ExprOrDel>) -> u8 {
-    let mut out: Vec<f32> = Vec::with_capacity(xs.len());
+    let mut out = Vec::with_capacity(xs.len());
     for i in 0..xs.len() {
         match xs[&i] {
             ExprOrDel::Delete(j) => {
@@ -130,6 +127,16 @@ mod tests {
         expr::parse,
         utils::{read_prospero, to_image, to_png},
     };
+
+    #[test]
+    fn reclaim_on_prospero() {
+        let input = read_prospero();
+        assert!(input.is_ok());
+        let p = parse(&input.unwrap());
+        assert!(p.is_ok());
+        assert!(Reclaim(16).translate(p.unwrap()).is_ok());
+    }
+
     #[test]
     fn reclaim_16() {
         let input = read_prospero();
