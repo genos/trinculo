@@ -2,8 +2,8 @@
 use argh::{FromArgValue, FromArgs};
 use std::path::PathBuf;
 use trinculo::{
-    Interpreter, Translator, baseline, combo_par, expr, parse, read_prospero, reclaim, reuse,
-    simd_par, thread_par, utils, write_image,
+    Interpreter, Translator, baseline, combo_par, expr, parse, read_prospero, reclaim,
+    reuse, simd_par, thread_par, utils, write_image,
 };
 
 /// Pixel size to render.
@@ -30,7 +30,6 @@ impl From<Pixels> for u16 {
 /// Which translation(s) to use.
 #[derive(Debug, Clone, FromArgValue)]
 enum Translation {
-    Nop,
     Reuse,
 }
 
@@ -39,9 +38,9 @@ enum Translation {
 enum Interpretation {
     Baseline,
     Reclaim,
-    ThreadPar,
-    SimdPar,
-    ComboPar,
+    Thread,
+    Simd,
+    Combo,
 }
 
 /// Render the Prospero quote
@@ -92,7 +91,6 @@ fn main() -> Result<(), Error> {
     let mut program = parse(&input)?;
     for t in args.translations {
         match t {
-            Translation::Nop => (),
             Translation::Reuse => program = reuse::Reuse.translate(program)?,
         }
     }
@@ -102,9 +100,9 @@ fn main() -> Result<(), Error> {
             let r = reclaim::Reclaim(image_size);
             r.interpret(r.translate(program)?)?
         }
-        Interpretation::ThreadPar => thread_par::ThreadParallel(image_size).interpret(program)?,
-        Interpretation::SimdPar => simd_par::SimdParallel(image_size).interpret(program)?,
-        Interpretation::ComboPar => combo_par::ComboParallel(image_size).interpret(program)?,
+        Interpretation::Thread => thread_par::ThreadParallel(image_size).interpret(program)?,
+        Interpretation::Simd => simd_par::SimdParallel(image_size).interpret(program)?,
+        Interpretation::Combo => combo_par::ComboParallel(image_size).interpret(program)?,
     };
     write_image(image_size, image, args.output)?;
     Ok(())

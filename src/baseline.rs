@@ -37,7 +37,7 @@ impl Interpreter for Baseline {
 /// Sequentially run the expressions for the given input values; return a [u8] that's 255 or 0,
 /// depending on whether the last computed value is less than zero.
 pub(crate) fn run(vx: f32, vy: f32, xs: &[Expr]) -> u8 {
-    let mut out: Vec<f32> = Vec::with_capacity(xs.len());
+    let mut out = Vec::with_capacity(xs.len());
     for &x in xs {
         out.push(step(vx, vy, x, &out));
     }
