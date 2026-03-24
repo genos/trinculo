@@ -4,8 +4,6 @@ Playing with Matt Keeter's [Prospero Challenge](https://www.mattkeeter.com/proje
 
 ## TODO
 
-[ ] Write up all the things
-[ ] Translation:
-    [ ] Pull negations out, à la https://github.com/jameysharp/live-long-and-prospero
-[ ] Interpretation:
-    [ ] Subdivide, interval arithmetic to shrink #exprs, then eval
+- [ ] Write up all the things
+- [ ] Translation: pull negations out, à la https://github.com/jameysharp/live-long-and-prospero
+- [ ] Interpretation: subdivide, interval arithmetic to shrink #exprs, then eval
