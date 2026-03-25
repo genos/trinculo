@@ -40,13 +40,13 @@ impl Translator for Reclaim {
     type Input = Program;
     type Output = ProgWithGC;
     type Error = Error;
-    fn translate(&self, prog: Program) -> Result<ProgWithGC, Error> {
+    fn translate(&self, input: Self::Input) -> Result<Self::Output, Self::Error> {
         let start = Instant::now();
-        let size = prog.exprs.len();
+        let size = input.exprs.len();
         let (mut seen, mut with_gc) = (HashSet::with_capacity(size), Vec::with_capacity(2 * size));
         // Walk backward from end, recording the last time a monadic or dyadic expr is seen, not
         // counting the very last instruction (needless gc).
-        for x in prog.exprs.into_iter().rev() {
+        for x in input.exprs.into_iter().rev() {
             if !with_gc.is_empty() {
                 match x {
                     Expr::VarX | Expr::VarY | Expr::Const(_) => (),
@@ -77,7 +77,7 @@ impl Translator for Reclaim {
             "Reclaiming Translator: time = {elapsed:?}, additions = {additions} instructions"
         );
         Ok(ProgWithGC {
-            header: prog.header,
+            header: input.header,
             exprs,
         })
     }
@@ -88,7 +88,7 @@ impl Interpreter for Reclaim {
     type Input = ProgWithGC;
     type Error = Error;
     #[allow(clippy::cast_precision_loss)]
-    fn interpret(&self, p: ProgWithGC) -> Result<Vec<u8>, Error> {
+    fn interpret(&self, input: Self::Input) -> Result<Vec<u8>, Self::Error> {
         let start = Instant::now();
         let image_size = usize::from(self.0);
         let half_image_size = f32::from(self.0 / 2);
@@ -97,7 +97,7 @@ impl Interpreter for Reclaim {
             let (x, y) = (i % image_size, i / image_size);
             let vx = (x as f32) / half_image_size - 1.0;
             let vy = 1.0 - (y as f32) / half_image_size;
-            *b = run(vx, vy, &mut p.exprs.clone());
+            *b = run(vx, vy, &mut input.exprs.clone());
         });
         let elapsed = start.elapsed();
         log::info!("Reclaiming Interpreter: time = {elapsed:?}");

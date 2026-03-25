@@ -1,8 +1,5 @@
 //! Removing unused expressions (A.K.A. dead code elimination).
-use crate::{
-    Translator,
-    expr::{Expr, Program},
-};
+use crate::{Translator, expr::Expr};
 use std::{
     collections::{HashSet, VecDeque},
     time::Instant,
@@ -19,27 +16,27 @@ pub enum Error {
 }
 
 impl Translator for Unused {
-    type Input = Program;
-    type Output = Program;
+    type Input = Vec<Expr>;
+    type Output = Vec<Expr>;
     type Error = Error;
-    fn translate(&self, prog: Program) -> Result<Program, Error> {
-        if prog.is_empty() {
-            Ok(prog)
+    fn translate(&self, input: Self::Input) -> Result<Self::Output, Self::Error> {
+        if input.is_empty() {
+            Ok(input)
         } else {
             let start = Instant::now();
-            let size = prog.exprs.len();
+            let size = input.len();
             let (mut unused, mut queue) = ((0..size - 1).collect::<HashSet<_>>(), VecDeque::new());
-            for a in prog.exprs.last().ok_or(Error::Empty)?.args() {
+            for a in input.last().ok_or(Error::Empty)?.args() {
                 queue.push_back(a);
             }
             while let Some(i) = queue.pop_front() {
                 unused.remove(&usize::from(i));
-                prog.exprs[usize::from(i)]
+                input[usize::from(i)]
                     .args()
                     .for_each(|a| queue.push_back(a));
             }
-            let mut exprs = prog.exprs.clone();
-            for &i in unused.iter() {
+            let mut exprs = input;
+            for &i in &unused {
                 for e in &mut exprs[i..] {
                     match e {
                         Expr::VarX | Expr::VarY | Expr::Const(_) => (),
@@ -70,10 +67,7 @@ impl Translator for Unused {
             log::info!(
                 "Unused Translator: time = {elapsed:?}, size difference = {difference} instructions"
             );
-            Ok(Program {
-                header: prog.header,
-                exprs,
-            })
+            Ok(exprs)
         }
     }
 }
@@ -81,7 +75,10 @@ impl Translator for Unused {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{expr::parse, utils::read_prospero};
+    use crate::{
+        expr::{Program, parse},
+        utils::read_prospero,
+    };
     use proptest::prelude::*;
     use rstest::*;
 
@@ -89,7 +86,7 @@ mod tests {
 
         #[test]
         fn unused_shortens(p: Program) {
-            let o = Unused.translate(p.clone());
+            let o = Unused.translate(p.clone().exprs);
             prop_assert!(o.is_ok());
             let o = o.unwrap();
             prop_assert!(p.len() >= o.len());
@@ -108,12 +105,12 @@ mod tests {
         assert!(p.is_ok());
         let p = p.unwrap();
         let q = parse(expected);
-        let o = Unused.translate(p);
+        let o = Unused.translate(p.exprs);
         assert!(o.is_ok());
         let o = o.unwrap();
         assert!(q.is_ok());
         let q = q.unwrap();
-        assert_eq!(o, q);
+        assert_eq!(o, q.exprs);
     }
 
     #[test]
@@ -122,6 +119,6 @@ mod tests {
         assert!(input.is_ok());
         let p = parse(&input.unwrap());
         assert!(p.is_ok());
-        assert!(Unused.translate(p.unwrap()).is_ok());
+        assert!(Unused.translate(p.unwrap().exprs).is_ok());
     }
 }

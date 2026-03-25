@@ -1,7 +1,7 @@
 //! Reuse previously seen expressions (similar to hash-consing or global value numbering).
 use crate::{
     Translator,
-    expr::{Dyad, Expr, Monad, Program},
+    expr::{Dyad, Expr, Monad},
 };
 use std::{collections::HashMap, time::Instant};
 
@@ -16,21 +16,21 @@ pub enum Error {
 }
 
 impl Translator for Reuse {
-    type Input = Program;
-    type Output = Program;
+    type Input = Vec<Expr>;
+    type Output = Vec<Expr>;
     type Error = Error;
-    fn translate(&self, prog: Program) -> Result<Program, Error> {
-        if prog.is_empty() {
-            Ok(prog)
+    fn translate(&self, input: Self::Input) -> Result<Self::Output, Self::Error> {
+        if input.is_empty() {
+            Ok(input)
         } else {
             let start = Instant::now();
-            let size = prog.exprs.len();
+            let size = input.len();
             let (mut exprs, mut ix, mut lookup) = (
                 Vec::with_capacity(size),
                 Vec::with_capacity(size),
                 HashMap::with_capacity(size),
             );
-            for e in prog.exprs {
+            for e in input {
                 let f = match e {
                     Expr::VarX | Expr::VarY | Expr::Const(_) => e,
                     Expr::Dyad(op, x, y) => {
@@ -66,10 +66,7 @@ impl Translator for Reuse {
             log::info!(
                 "Reuse Translator: time = {elapsed:?}, size difference = {difference} instructions"
             );
-            Ok(Program {
-                header: prog.header,
-                exprs,
-            })
+            Ok(exprs)
         }
     }
 }
@@ -77,7 +74,10 @@ impl Translator for Reuse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{expr::parse, utils::read_prospero};
+    use crate::{
+        expr::{Program, parse},
+        utils::read_prospero,
+    };
     use proptest::prelude::*;
     use rstest::*;
 
@@ -85,7 +85,7 @@ mod tests {
 
         #[test]
         fn reuse_shortens(p: Program) {
-            let o = Reuse.translate(p.clone());
+            let o = Reuse.translate(p.exprs.clone());
             prop_assert!(o.is_ok());
             let o = o.unwrap();
             prop_assert!(p.len() >= o.len());
@@ -93,7 +93,7 @@ mod tests {
 
         #[test]
         fn reuse_idempotent(p: Program) {
-            let q = Reuse.translate(p);
+            let q = Reuse.translate(p.exprs);
             prop_assert!(q.is_ok());
             let q = q.unwrap();
             let r = Reuse.translate(q.clone());
@@ -109,7 +109,7 @@ mod tests {
         assert!(input.is_ok());
         let p = parse(&input.unwrap());
         assert!(p.is_ok());
-        assert!(Reuse.translate(p.unwrap()).is_ok());
+        assert!(Reuse.translate(p.unwrap().exprs).is_ok());
     }
 
     #[rstest]
@@ -127,12 +127,12 @@ mod tests {
         assert!(p.is_ok());
         let p = p.unwrap();
         let q = parse(expected);
-        let o = Reuse.translate(p);
+        let o = Reuse.translate(p.exprs);
         assert!(o.is_ok());
         let o = o.unwrap();
         assert!(q.is_ok());
         let q = q.unwrap();
-        assert_eq!(o, q);
+        assert_eq!(o, q.exprs);
     }
 
     #[test]
@@ -143,7 +143,7 @@ mod tests {
             header: "too big".to_string(),
             exprs: (0..=n).map(|i| Expr::Const(i as f32)).collect(),
         };
-        let o = Reuse.translate(p);
+        let o = Reuse.translate(p.exprs);
         assert!(o.is_err());
         assert_eq!(o.unwrap_err(), Error::TooBig(n));
     }

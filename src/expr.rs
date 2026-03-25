@@ -417,7 +417,7 @@ impl<'a> Translator for &'a Parser {
     type Input = &'a str;
     type Output = Program;
     type Error = ParseError;
-    fn translate(&self, input: &'a str) -> Result<Program, ParseError> {
+    fn translate(&self, input: Self::Input) -> Result<Self::Output, Self::Error> {
         let start = Instant::now();
         let mut exprs = Vec::new();
         let mut lines = input.lines();
