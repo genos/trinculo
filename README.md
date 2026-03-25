@@ -4,6 +4,8 @@ Playing with Matt Keeter's [Prospero Challenge](https://www.mattkeeter.com/proje
 
 ## TODO
 
-- [ ] Write up all the things
+- [ ] Translation: dead code elimination
 - [ ] Translation: pull negations out, à la https://github.com/jameysharp/live-long-and-prospero
 - [ ] Interpretation: subdivide, interval arithmetic to shrink #exprs, then eval
+- [ ] MODULARITY
+- [ ] Write up all the things

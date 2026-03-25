@@ -71,7 +71,6 @@ impl PartialEq for Expr {
     }
 }
 impl Eq for Expr {}
-
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, h: &mut H) {
         h.write_u64(u64::from(self));
@@ -398,6 +397,8 @@ pub enum ParseError {
     LineNumber { line: usize, value: u16 },
     #[error("An error occurred in trying to parse an expression at line {line}: {error}")]
     BadExpr { line: usize, error: ExprParseError },
+    #[error("Expression {expr} references future or self-referential arguments at line {line}")]
+    FutureOrSelfArgs { line: usize, expr: Expr },
 }
 
 impl<'a> Translator for &'a Parser {
@@ -421,6 +422,17 @@ impl<'a> Translator for &'a Parser {
                 }
                 let e =
                     Expr::from_str(rest).map_err(|error| ParseError::BadExpr { line, error })?;
+                for arg in match e {
+                    // Couldn't find a way to make this work nicely with iterators; type inference
+                    // bit me.
+                    Expr::VarX | Expr::VarY | Expr::Const(_) => vec![].into_iter(),
+                    Expr::Dyad(_, x, y) => vec![x, y].into_iter(),
+                    Expr::Monad(_, x) => vec![x].into_iter(),
+                } {
+                    if usize::from(arg) >= line {
+                        return Err(ParseError::FutureOrSelfArgs { line, expr: e });
+                    }
+                }
                 exprs.push(e);
             } else {
                 return Err(ParseError::EmptyLine(line));
@@ -612,6 +624,7 @@ mod tests {
     #[case("# test\n_1 var-x", ParseError::LineNumber{line: 0, value: 1})]
     #[case("# test\n_0 nonsense", ParseError::BadExpr{line: 0, error: ExprParseError::BadOp("nonsense".to_string())})]
     #[case("# test\n_1", ParseError::EmptyLine(0))]
+    #[case("# test\n_0 add _1 _2", ParseError::FutureOrSelfArgs{line: 0, expr: Expr::Dyad(Dyad::Add, 1, 2)})]
     fn prog_parse_errors(#[case] input: &str, #[case] expected: ParseError) {
         let p = parse(input);
         assert!(p.is_err());
