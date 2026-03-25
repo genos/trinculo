@@ -8,7 +8,7 @@ fn bench(c: &mut Criterion) {
     group.bench_function("reuse", |b| {
         b.iter(|| {
             let p = black_box(prog.clone());
-            let _ = Reuse.translate(p);
+            let _ = Reuse.translate(p.exprs);
         });
     });
     group.bench_function("reclaim", |b| {
@@ -20,7 +20,7 @@ fn bench(c: &mut Criterion) {
     group.bench_function("unused", |b| {
         b.iter(|| {
             let p = black_box(prog.clone());
-            let _ = Unused.translate(p);
+            let _ = Unused.translate(p.exprs);
         });
     });
 }

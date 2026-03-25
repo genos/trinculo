@@ -94,8 +94,8 @@ fn main() -> Result<(), Error> {
     let mut program = parse(&input)?;
     for t in args.translations {
         match t {
-            Translation::Reuse => program = reuse::Reuse.translate(program)?,
-            Translation::Unused => program = unused::Unused.translate(program)?,
+            Translation::Reuse => program.exprs = reuse::Reuse.translate(program.exprs)?,
+            Translation::Unused => program.exprs = unused::Unused.translate(program.exprs)?,
         }
     }
     let image = match args.interpretation {

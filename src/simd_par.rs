@@ -28,13 +28,13 @@ impl Interpreter for SimdParallel {
     type Input = Program;
     type Error = Error;
     #[allow(clippy::cast_precision_loss)]
-    fn interpret(&self, p: Program) -> Result<Vec<u8>, Error> {
+    fn interpret(&self, input: Self::Input) -> Result<Vec<u8>, Self::Error> {
         let start = Instant::now();
         let image_size = usize::from(self.0);
         let mut out = vec![0u8; image_size * image_size];
         out.chunks_exact_mut(N)
             .enumerate()
-            .for_each(|(i, c)| exec(i, c, &p.exprs, &Simd::splat(image_size)));
+            .for_each(|(i, c)| exec(i, c, &input.exprs, &Simd::splat(image_size)));
         let elapsed = start.elapsed();
         log::info!("SIMD-based Parallel Interpreter: time = {elapsed:?}");
         Ok(out)

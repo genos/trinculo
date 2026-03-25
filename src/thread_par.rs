@@ -18,7 +18,7 @@ impl Interpreter for ThreadParallel {
     type Input = Program;
     type Error = Error;
     #[allow(clippy::cast_precision_loss)]
-    fn interpret(&self, p: Program) -> Result<Vec<u8>, Error> {
+    fn interpret(&self, input: Self::Input) -> Result<Vec<u8>, Self::Error> {
         let start = Instant::now();
         let image_size = usize::from(self.0);
         let half_image_size = f32::from(self.0 / 2);
@@ -27,7 +27,7 @@ impl Interpreter for ThreadParallel {
             let (x, y) = (i % image_size, i / image_size);
             let vx = (x as f32) / half_image_size - 1.0;
             let vy = 1.0 - (y as f32) / half_image_size;
-            *b = baseline::run(vx, vy, &p.exprs);
+            *b = baseline::run(vx, vy, &input.exprs);
         });
         let elapsed = start.elapsed();
         log::info!("Thread-based Parallel Interpreter: time = {elapsed:?}");
