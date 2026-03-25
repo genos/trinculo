@@ -6,3 +6,4 @@ Keeter's
 monadop
 dyadop
 argh
+Deque
