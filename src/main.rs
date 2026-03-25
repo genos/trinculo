@@ -2,8 +2,8 @@
 use argh::{FromArgValue, FromArgs};
 use std::path::PathBuf;
 use trinculo::{
-    Interpreter, Translator, baseline, combo_par, expr, parse, read_prospero, reclaim,
-    reuse, simd_par, thread_par, utils, write_image,
+    Interpreter, Translator, baseline, combo_par, expr, parse, read_prospero, reclaim, reuse,
+    simd_par, thread_par, unused, utils, write_image,
 };
 
 /// Pixel size to render.
@@ -31,6 +31,7 @@ impl From<Pixels> for u16 {
 #[derive(Debug, Clone, FromArgValue)]
 enum Translation {
     Reuse,
+    Unused,
 }
 
 /// Which interpretation to use.
@@ -71,6 +72,8 @@ enum Error {
     Parse(#[from] expr::ParseError),
     #[error("Reuse translation error: {0}")]
     Reuse(#[from] reuse::Error),
+    #[error("Unused translation error: {0}")]
+    Unused(#[from] unused::Error),
     #[error("Baseline interpretation error: {0}")]
     Baseline(#[from] baseline::Error),
     #[error("Reclaim translation error: {0}")]
@@ -92,6 +95,7 @@ fn main() -> Result<(), Error> {
     for t in args.translations {
         match t {
             Translation::Reuse => program = reuse::Reuse.translate(program)?,
+            Translation::Unused => program = unused::Unused.translate(program)?,
         }
     }
     let image = match args.interpretation {

@@ -77,6 +77,18 @@ impl Hash for Expr {
     }
 }
 
+impl Expr {
+    pub(crate) fn args(&self) -> impl Iterator<Item = u16> {
+        match self {
+            // Couldn't find a way to make this work nicely with iterators; type inference
+            // bit me.
+            Self::VarX | Self::VarY | Self::Const(_) => vec![].into_iter(),
+            Self::Dyad(_, x, y) => vec![*x, *y].into_iter(),
+            Self::Monad(_, x) => vec![*x].into_iter(),
+        }
+    }
+}
+
 /// Packing an [Expr] into a [u64].
 ///
 /// The binary format is as follows:
@@ -422,13 +434,7 @@ impl<'a> Translator for &'a Parser {
                 }
                 let e =
                     Expr::from_str(rest).map_err(|error| ParseError::BadExpr { line, error })?;
-                for arg in match e {
-                    // Couldn't find a way to make this work nicely with iterators; type inference
-                    // bit me.
-                    Expr::VarX | Expr::VarY | Expr::Const(_) => vec![].into_iter(),
-                    Expr::Dyad(_, x, y) => vec![x, y].into_iter(),
-                    Expr::Monad(_, x) => vec![x].into_iter(),
-                } {
+                for arg in e.args() {
                     if usize::from(arg) >= line {
                         return Err(ParseError::FutureOrSelfArgs { line, expr: e });
                     }

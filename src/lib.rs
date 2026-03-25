@@ -32,6 +32,7 @@ pub mod reclaim;
 pub mod reuse;
 pub mod simd_par;
 pub mod thread_par;
+pub mod unused;
 pub mod utils;
 
 pub use expr::parse;
