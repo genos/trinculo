@@ -43,9 +43,8 @@ name = "interpret"
 harness = false
 
 [dev-dependencies]
+chaos_theory = { version = "0.3.5", features = ["derive", "regex"] }
 criterion = "0.8.2"
 insta = "1.46.3"
-proptest = "1.10.0"
-proptest-derive = "0.8.0"
 rstest = "0.26.1"
 tempfile = "3.27.0"
