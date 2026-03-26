@@ -9,11 +9,8 @@ use std::{
 pub struct Unused;
 
 /// Errors that can arise when trying to translate a [`Program`].
-#[derive(Debug, thiserror::Error, PartialEq, Eq)]
-pub enum Error {
-    #[error("Empty program")]
-    Empty,
-}
+#[derive(Debug, thiserror::Error)]
+pub enum Error {}
 
 impl Translator for Unused {
     type Input = Vec<Expr>;
@@ -25,15 +22,13 @@ impl Translator for Unused {
         } else {
             let start = Instant::now();
             let size = input.len();
-            let (mut unused, mut queue) = ((0..size - 1).collect::<HashSet<_>>(), VecDeque::new());
-            for a in input.last().ok_or(Error::Empty)?.args() {
-                queue.push_back(a);
+            let (mut unused, mut q) = ((0..size - 1).collect::<HashSet<_>>(), VecDeque::new());
+            for a in input.last().expect("Nonempty on this branch").args() {
+                q.push_back(usize::from(a));
             }
-            while let Some(i) = queue.pop_front() {
-                unused.remove(&usize::from(i));
-                input[usize::from(i)]
-                    .args()
-                    .for_each(|a| queue.push_back(a));
+            while let Some(i) = q.pop_front() {
+                unused.remove(&i);
+                input[i].args().for_each(|a| q.push_back(usize::from(a)));
             }
             let mut exprs = input;
             for &i in &unused {
@@ -41,18 +36,10 @@ impl Translator for Unused {
                     match e {
                         Expr::VarX | Expr::VarY | Expr::Const(_) => (),
                         Expr::Dyad(_, x, y) => {
-                            if usize::from(*x) > i {
-                                *x -= 1;
-                            }
-                            if usize::from(*y) > i {
-                                *y -= 1;
-                            }
+                            *x -= u16::from(usize::from(*x) > i);
+                            *y -= u16::from(usize::from(*y) > i);
                         }
-                        Expr::Monad(_, x) => {
-                            if usize::from(*x) > i {
-                                *x -= 1;
-                            }
-                        }
+                        Expr::Monad(_, x) => *x -= u16::from(usize::from(*x) > i),
                     }
                 }
             }

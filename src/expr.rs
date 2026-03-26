@@ -150,7 +150,7 @@ impl From<&Expr> for u64 {
 }
 
 /// Errors that can arise when trying to parse a [u64] as an [`Expr`].
-#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum ExprU64Error {
     #[error("Junk bits should be zero: {0:b}")]
     Junk(u64),
@@ -225,7 +225,7 @@ impl fmt::Debug for Expr {
 }
 
 /// Errors that can arise when trying to parse a hex [u16].
-#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum HexParseError {
     #[error("Hex value missing leading underscore: {0}")]
     Underscore(String),
@@ -246,7 +246,7 @@ fn hex(t: &str) -> Result<u16, HexParseError> {
 }
 
 /// Errors that can arise when trying to parse an expression.
-#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum ExprParseError {
     #[error("Missing an operation")]
     MissingOp,
@@ -395,7 +395,7 @@ pub fn parse(s: &str) -> Result<Program, ParseError> {
 pub struct Parser;
 
 /// Errors that can arise when trying to [`parse`] a [`Program`].
-#[derive(Debug, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum ParseError {
     #[error("Empty program")]
     EmptyProg,
