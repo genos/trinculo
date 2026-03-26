@@ -75,32 +75,34 @@ impl Translator for Reuse {
 mod tests {
     use super::*;
     use crate::{
-        expr::{Program, parse},
+        expr::{ProgGen, Program, parse},
         utils::read_prospero,
     };
-    use proptest::prelude::*;
+    use chaos_theory::check;
     use rstest::*;
 
-    proptest! {
-
-        #[test]
-        fn reuse_shortens(p: Program) {
+    #[test]
+    fn reuse_shortens() {
+        check(|src| {
+            let p = src.any_of("prog", ProgGen);
             let o = Reuse.translate(p.exprs.clone());
-            prop_assert!(o.is_ok());
+            assert!(o.is_ok());
             let o = o.unwrap();
-            prop_assert!(p.len() >= o.len());
-        }
+            assert!(p.len() >= o.len());
+        });
+    }
 
-        #[test]
-        fn reuse_idempotent(p: Program) {
+    #[test]
+    fn reuse_idempotent() {
+        check(|src| {
+            let p = src.any_of("prog", ProgGen);
             let q = Reuse.translate(p.exprs);
-            prop_assert!(q.is_ok());
+            assert!(q.is_ok());
             let q = q.unwrap();
             let r = Reuse.translate(q.clone());
-            prop_assert!(r.is_ok());
-            prop_assert_eq!(r.unwrap(), q);
-        }
-
+            assert!(r.is_ok());
+            assert_eq!(r.unwrap(), q);
+        });
     }
 
     #[test]

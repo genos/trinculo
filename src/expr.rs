@@ -11,7 +11,7 @@ use std::{
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, strum::Display, strum::EnumString)]
 #[strum(serialize_all = "lowercase")]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(test, derive(chaos_theory::Arbitrary))]
 pub enum Dyad {
     Add,
     Sub,
@@ -29,7 +29,7 @@ impl fmt::Debug for Dyad {
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, strum::Display, strum::EnumString)]
 #[strum(serialize_all = "lowercase")]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(test, derive(chaos_theory::Arbitrary))]
 pub enum Monad {
     Neg,
     Square,
@@ -56,7 +56,7 @@ impl fmt::Debug for Monad {
 /// ordering, and hashing traits for an [`Expr`] are based off of its representation as a [u64] via
 /// the `<u64 as From<Expr>>::from` implementation.
 #[derive(Clone, Copy)]
-#[cfg_attr(test, derive(proptest_derive::Arbitrary))]
+#[cfg_attr(test, derive(chaos_theory::Arbitrary))]
 pub enum Expr {
     VarX,
     VarY,
@@ -317,42 +317,48 @@ pub struct Program {
 }
 
 #[cfg(test)]
-impl proptest::arbitrary::Arbitrary for Program {
-    type Parameters = ();
-    type Strategy = proptest::prelude::BoxedStrategy<Self>;
-    fn arbitrary_with((): Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::*;
-        let header = any::<String>();
-        let exprs = (0..1000u16).prop_flat_map(|n| {
-            (0..n)
-                .map(|k| match k {
-                    0 => prop_oneof![
-                        Just(Expr::VarX),
-                        Just(Expr::VarY),
-                        any::<f32>().prop_map(Expr::Const)
-                    ]
-                    .boxed(),
-                    1 => prop_oneof![
-                        Just(Expr::VarX),
-                        Just(Expr::VarY),
-                        any::<f32>().prop_map(Expr::Const),
-                        any::<Monad>().prop_map(|op| Expr::Monad(op, 0)),
-                    ]
-                    .boxed(),
-                    _ => prop_oneof![
-                        Just(Expr::VarX),
-                        Just(Expr::VarY),
-                        any::<f32>().prop_map(Expr::Const),
-                        (any::<Monad>(), (0..k)).prop_map(|(op, i)| Expr::Monad(op, i)),
-                        (any::<Dyad>(), (0..k), (0..k)).prop_map(|(op, i, j)| Expr::Dyad(op, i, j)),
-                    ]
-                    .boxed(),
-                })
-                .collect::<Vec<_>>()
-        });
-        (header, exprs)
-            .prop_map(|(header, exprs)| Self { header, exprs })
-            .boxed()
+#[derive(Debug)]
+pub(crate) struct ProgGen;
+
+#[cfg(test)]
+impl chaos_theory::Generator for ProgGen {
+    type Item = Program;
+    #[allow(clippy::many_single_char_names)]
+    fn next(&self, src: &mut chaos_theory::SourceRaw, example: Option<&Self::Item>) -> Self::Item {
+        use chaos_theory::{Arbitrary, Effect, make};
+        let header = src.any_of(
+            "header",
+            make::string_matching(r"#( \w)+", true),
+            example.map(|e| &e.header),
+        );
+        let exprs = src
+            .repeat(
+                "exprs",
+                example.map(|e| e.exprs.iter()),
+                ..(u16::MAX as usize),
+                Vec::with_capacity,
+                |xs, src, ex| {
+                    let c = Expr::Const(f32::arbitrary().next(src, Some(&0.0)));
+                    let n = u16::try_from(xs.len()).expect("< u16::MAX by design");
+                    xs.push(match xs.len() {
+                        0 => src.any_of("<0>", make::one_of(&[Expr::VarX, Expr::VarY, c]), ex),
+                        1 => {
+                            let m = Expr::Monad(Monad::arbitrary().next(src, None), 0);
+                            src.any_of("<1>", make::one_of(&[Expr::VarX, Expr::VarY, c, m]), ex)
+                        }
+                        _ => {
+                            let x = make::int_in_range(..n).next(src, Some(&0));
+                            let y = make::int_in_range(..n).next(src, Some(&0));
+                            let m = Expr::Monad(Monad::arbitrary().next(src, None), x);
+                            let d = Expr::Dyad(Dyad::arbitrary().next(src, None), x, y);
+                            src.any_of("<∞>", make::one_of(&[Expr::VarX, Expr::VarY, c, m, d]), ex)
+                        }
+                    });
+                    Effect::Success
+                },
+            )
+            .unwrap_or_default();
+        Program { header, exprs }
     }
 }
 
@@ -453,141 +459,204 @@ impl<'a> Translator for &'a Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::prelude::*;
+    use chaos_theory::{check, make::int_in_range};
     use rstest::*;
     use std::collections::HashSet;
 
-    proptest! {
-        #[test]
-        fn dyad_roundtrip(x: Dyad) {
+    #[test]
+    fn dyad_roundtrip() {
+        check(|src| {
+            let x = src.any::<Dyad>("dyad");
             let y = Dyad::from_str(&x.to_string());
-            prop_assert!(y.is_ok());
+            assert!(y.is_ok());
             let y = y.unwrap();
-            prop_assert_eq!(x, y);
-        }
+            assert_eq!(x, y);
+        });
+    }
 
-        #[test]
-        fn dyad_roundtrip_dbg(x: Dyad) {
+    #[test]
+    fn dyad_roundtrip_dbg() {
+        check(|src| {
+            let x = src.any::<Dyad>("dyad");
             let y = Dyad::from_str(&format!("{x:?}"));
-            prop_assert!(y.is_ok());
+            assert!(y.is_ok());
             let y = y.unwrap();
-            prop_assert_eq!(x, y);
-        }
+            assert_eq!(x, y);
+        });
+    }
 
-        #[test]
-        fn monad_roundtrip(x: Monad) {
+    #[test]
+    fn monad_roundtrip() {
+        check(|src| {
+            let x = src.any::<Monad>("monad");
             let y = Monad::from_str(&x.to_string());
-            prop_assert!(y.is_ok());
+            assert!(y.is_ok());
             let y = y.unwrap();
-            prop_assert_eq!(x, y);
-        }
+            assert_eq!(x, y);
+        });
+    }
 
-        #[test]
-        fn monad_roundtrip_dbg(x: Monad) {
+    #[test]
+    fn monad_roundtrip_dbg() {
+        check(|src| {
+            let x = src.any::<Monad>("monad");
             let y = Monad::from_str(&format!("{x:?}"));
-            prop_assert!(y.is_ok());
+            assert!(y.is_ok());
             let y = y.unwrap();
-            prop_assert_eq!(x, y);
-        }
+            assert_eq!(x, y);
+        });
+    }
 
-        #[test]
-        fn expr_roundtrip(x: Expr) {
+    #[test]
+    fn expr_roundtrip() {
+        check(|src| {
+            let x = src.any::<Expr>("expr");
             let y = Expr::from_str(&x.to_string());
-            prop_assert!(y.is_ok());
+            assert!(y.is_ok());
             let y = y.unwrap();
-            prop_assert_eq!(x, y);
-        }
+            assert_eq!(x, y);
+        });
+    }
 
-        #[test]
-        fn expr_roundtrip_dbg(x: Expr) {
+    #[test]
+    fn expr_roundtrip_dbg() {
+        check(|src| {
+            let x = src.any::<Expr>("expr");
             let y = Expr::from_str(&format!("{x:?}"));
-            prop_assert!(y.is_ok());
+            assert!(y.is_ok());
             let y = y.unwrap();
-            prop_assert_eq!(x, y);
-        }
+            assert_eq!(x, y);
+        });
+    }
 
-        #[test]
-        fn expr_hash_eq(x: Expr, y: Expr) {
-            prop_assert_eq!(x == y, HashSet::from([x]) == HashSet::from([y]));
-        }
+    #[test]
+    fn expr_hash_eq() {
+        check(|src| {
+            let x = src.any::<Expr>("Expr x");
+            let y = src.any::<Expr>("Expr y");
+            assert_eq!(x == y, HashSet::from([x]) == HashSet::from([y]));
+        });
+    }
 
-        #[test]
-        fn expr_u64_roundtrip(x: Expr) {
+    #[test]
+    fn expr_u64_roundtrip() {
+        check(|src| {
+            let x = src.any::<Expr>("expr");
             let b = u64::from(x);
             let y = Expr::try_from(b);
-            prop_assert!(y.is_ok());
+            assert!(y.is_ok());
             let y = y.unwrap();
-            prop_assert_eq!(x, y);
-        }
+            assert_eq!(x, y);
+        });
+    }
 
-        #[test]
-        fn expr_u64_junk(tag in 0u64..5, junk in 1u64..(1<<26), payload in 0u64..(1<<32)) {
+    #[test]
+    fn expr_u64_junk() {
+        check(|src| {
+            let tag = src.any_of("tag", int_in_range(0u64..5));
+            let junk = src.any_of("junk", int_in_range(1u64..(1 << 26)));
+            let payload = src.any_of("payload", int_in_range(0u64..(1 << 32)));
             let x = Expr::try_from(tag | (junk << 6) | (payload << 32));
-            prop_assert_eq!(x, Err(ExprU64Error::Junk(junk)));
-        }
+            assert_eq!(x, Err(ExprU64Error::Junk(junk)));
+        });
+    }
 
-        #[test]
-        fn expr_u64_nzx(op in 0u64..(1<<3), payload in 0u64..(1<<32)) {
+    #[test]
+    fn expr_u64_nzx() {
+        check(|src| {
+            let op = src.any_of("op", int_in_range(0u64..(1 << 3)));
+            let payload = src.any_of("payload", int_in_range(0u64..(1 << 32)));
             if (op, payload) != (0, 0) {
                 let x = Expr::try_from((op << 3) | (payload << 32));
-                prop_assert_eq!(x, Err(ExprU64Error::NzX((op << 3) | (payload << 32))));
+                assert_eq!(x, Err(ExprU64Error::NzX((op << 3) | (payload << 32))));
             }
-        }
+        });
+    }
 
-        #[test]
-        fn expr_u64_nzy(op in 0u64..(1<<3), payload in 0u64..(1<<32)) {
+    #[test]
+    fn expr_u64_nzy() {
+        check(|src| {
+            let op = src.any_of("op", int_in_range(0u64..(1 << 3)));
+            let payload = src.any_of("payload", int_in_range(0u64..(1 << 32)));
             if (op, payload) != (0, 0) {
                 let x = Expr::try_from(1 | (op << 3) | (payload << 32));
-                prop_assert_eq!(x, Err(ExprU64Error::NzY((op << 3) | (payload << 32))));
+                assert_eq!(x, Err(ExprU64Error::NzY((op << 3) | (payload << 32))));
             }
-        }
+        });
+    }
 
-        #[test]
-        fn expr_u64_nzc(op in 1u64..(1<<3), payload in 0u64..(1<<32)) {
+    #[test]
+    fn expr_u64_nzc() {
+        check(|src| {
+            let op = src.any_of("op", int_in_range(1u64..(1 << 3)));
+            let payload = src.any_of("payload", int_in_range(0u64..(1 << 32)));
             let x = Expr::try_from(2 | (op << 3) | (payload << 32));
-            prop_assert_eq!(x, Err(ExprU64Error::NzC((op << 3) | (payload << 32))));
-        }
+            assert_eq!(x, Err(ExprU64Error::NzC((op << 3) | (payload << 32))));
+        });
+    }
 
-        #[test]
-        fn expr_u64_dyadop(op in 5u64..8, payload in 0u64..(1<<32)) {
+    #[test]
+    fn expr_u64_dyadop() {
+        check(|src| {
+            let op = src.any_of("op", int_in_range(5u64..(1 << 3)));
+            let payload = src.any_of("payload", int_in_range(0u64..(1 << 32)));
             let x = Expr::try_from(3 | (op << 3) | (payload << 32));
-            prop_assert_eq!(x, Err(ExprU64Error::DyadOp(op << 3)));
-        }
+            assert_eq!(x, Err(ExprU64Error::DyadOp(op << 3)));
+        });
+    }
 
-        #[test]
-        fn expr_u64_monadop(op in 3u64..8, x in 0u64..(1<<16)) {
+    #[test]
+    fn expr_u64_monadop() {
+        check(|src| {
+            let op = src.any_of("op", int_in_range(3u64..(1 << 3)));
+            let x = src.any_of("x", int_in_range(0u64..(1 << 16)));
             let x = Expr::try_from(4 | (op << 3) | (x << 32));
-            prop_assert_eq!(x, Err(ExprU64Error::MonadOp(op << 3)));
-        }
+            assert_eq!(x, Err(ExprU64Error::MonadOp(op << 3)));
+        });
+    }
 
-        #[test]
-        fn expr_u64_nzm(op in 0u64..3, x in 0u64..(1<<16), y in 1u64..(1<<16)) {
+    #[test]
+    fn expr_u64_nzm() {
+        check(|src| {
+            let op = src.any_of("op", int_in_range(0u64..3));
+            let x = src.any_of("x", int_in_range(0u64..(1 << 16)));
+            let y = src.any_of("y", int_in_range(1u64..(1 << 16)));
             let x = Expr::try_from(4 | (op << 3) | (x << 32) | (y << 48));
-            prop_assert_eq!(x, Err(ExprU64Error::NzM(y << 48)));
-        }
+            assert_eq!(x, Err(ExprU64Error::NzM(y << 48)));
+        });
+    }
 
-        #[test]
-        fn exp_u64_tag(tag in 6u64..8, op in 0u64..3, payload in 0u64..(1<<32)) {
+    #[test]
+    fn exp_u64_tag() {
+        check(|src| {
+            let tag = src.any_of("tag", int_in_range(6u64..8));
+            let op = src.any_of("op", int_in_range(0u64..3));
+            let payload = src.any_of("payload", int_in_range(0u64..(1 << 32)));
             let x = Expr::try_from(tag | (op << 3) | (payload << 32));
-            prop_assert_eq!(x, Err(ExprU64Error::Tag(tag)));
-        }
+            assert_eq!(x, Err(ExprU64Error::Tag(tag)));
+        });
+    }
 
-        #[test]
-        fn prog_roundtrip(xs: Program) {
-            let ys = parse(&xs.to_string());
-            prop_assert!(ys.is_ok());
-            let ys = ys.unwrap();
-            prop_assert_eq!(xs, ys);
-        }
+    #[test]
+    fn prog_roundtrip() {
+        check(|src| {
+            let p = src.any_of("prog", ProgGen);
+            let q = parse(&p.to_string());
+            assert!(q.is_ok());
+            let q = q.unwrap();
+            assert_eq!(p, q);
+        });
+    }
 
-        #[test]
-        fn prog_roundtrip_dbg(xs: Program) {
-            let ys = parse(&format!("{xs:?}"));
-            prop_assert!(ys.is_ok());
-            let ys = ys.unwrap();
-            prop_assert_eq!(xs, ys);
-        }
-
+    #[test]
+    fn prog_roundtrip_dbg() {
+        check(|src| {
+            let p = src.any_of("prog", ProgGen);
+            let q = parse(&format!("{p:?}"));
+            assert!(q.is_ok());
+            let q = q.unwrap();
+            assert_eq!(p, q);
+        });
     }
 
     #[rstest]
