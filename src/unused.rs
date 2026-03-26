@@ -63,7 +63,7 @@ impl Translator for Unused {
 mod tests {
     use super::*;
     use crate::{
-        expr::{ProgGen, parse},
+        expr::{Program, parse},
         utils::read_prospero,
     };
     use chaos_theory::check;
@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn unused_shortens() {
         check(|src| {
-            let p = src.any_of("prog", ProgGen);
+            let p = src.any::<Program>("prog");
             let o = Unused.translate(p.clone().exprs);
             assert!(o.is_ok());
             let o = o.unwrap();
