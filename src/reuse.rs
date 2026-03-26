@@ -75,7 +75,7 @@ impl Translator for Reuse {
 mod tests {
     use super::*;
     use crate::{
-        expr::{ProgGen, Program, parse},
+        expr::{Program, parse},
         utils::read_prospero,
     };
     use chaos_theory::check;
@@ -84,7 +84,7 @@ mod tests {
     #[test]
     fn reuse_shortens() {
         check(|src| {
-            let p = src.any_of("prog", ProgGen);
+            let p = src.any::<Program>("prog");
             let o = Reuse.translate(p.exprs.clone());
             assert!(o.is_ok());
             let o = o.unwrap();
@@ -95,7 +95,7 @@ mod tests {
     #[test]
     fn reuse_idempotent() {
         check(|src| {
-            let p = src.any_of("prog", ProgGen);
+            let p = src.any::<Program>("prog");
             let q = Reuse.translate(p.exprs);
             assert!(q.is_ok());
             let q = q.unwrap();

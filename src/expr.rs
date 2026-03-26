@@ -318,8 +318,7 @@ pub struct Program {
 
 #[cfg(test)]
 #[derive(Debug)]
-pub(crate) struct ProgGen;
-
+struct ProgGen;
 #[cfg(test)]
 impl chaos_theory::Generator for ProgGen {
     type Item = Program;
@@ -361,13 +360,18 @@ impl chaos_theory::Generator for ProgGen {
         Program { header, exprs }
     }
 }
+#[cfg(test)]
+impl chaos_theory::Arbitrary for Program {
+    fn arbitrary() -> impl chaos_theory::Generator<Item = Self> {
+        ProgGen
+    }
+}
 
 impl Program {
     #[must_use]
     pub const fn len(&self) -> usize {
         self.exprs.len()
     }
-
     #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.exprs.is_empty()
@@ -640,7 +644,7 @@ mod tests {
     #[test]
     fn prog_roundtrip() {
         check(|src| {
-            let p = src.any_of("prog", ProgGen);
+            let p = src.any::<Program>("prog");
             let q = parse(&p.to_string());
             assert!(q.is_ok());
             let q = q.unwrap();
@@ -651,11 +655,19 @@ mod tests {
     #[test]
     fn prog_roundtrip_dbg() {
         check(|src| {
-            let p = src.any_of("prog", ProgGen);
+            let p = src.any::<Program>("prog");
             let q = parse(&format!("{p:?}"));
             assert!(q.is_ok());
             let q = q.unwrap();
             assert_eq!(p, q);
+        });
+    }
+
+    #[test]
+    fn prog_empty_len_match() {
+        check(|src| {
+            let p = src.any::<Program>("prog");
+            assert_eq!(p.is_empty(), p.len() == 0);
         });
     }
 
