@@ -33,7 +33,7 @@ pub struct ProgWithGC {
 pub struct Reclaim(pub u16);
 
 /// Errors that can arise when trying to translate or interpret a [`Program`].
-#[derive(Debug, thiserror::Error, PartialEq, Eq)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {}
 
 impl Translator for Reclaim {
