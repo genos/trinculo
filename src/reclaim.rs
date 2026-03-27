@@ -122,37 +122,5 @@ fn run(vx: f32, vy: f32, xs: &mut HashMap<usize, ExprOrDel>) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        expr::parse,
-        utils::{read_prospero, to_image, to_png},
-    };
-
-    #[test]
-    fn reclaim_on_prospero() {
-        let input = read_prospero();
-        assert!(input.is_ok());
-        let p = parse(&input.unwrap());
-        assert!(p.is_ok());
-        assert!(Reclaim(16).translate(p.unwrap()).is_ok());
-    }
-
-    #[test]
-    fn reclaim_16() {
-        let input = read_prospero();
-        assert!(input.is_ok());
-        let input = input.unwrap();
-        let program = parse(&input);
-        assert!(program.is_ok());
-        let r = Reclaim(16);
-        let prog_with_gc = r.translate(program.unwrap());
-        assert!(prog_with_gc.is_ok());
-        let output = Reclaim(16).interpret(prog_with_gc.unwrap());
-        assert!(output.is_ok());
-        let image = to_image(16, output.unwrap());
-        assert!(image.is_ok());
-        let png = to_png(&image.unwrap());
-        assert!(png.is_ok());
-        insta::assert_binary_snapshot!("reclaim_16.png", png.unwrap());
-    }
+    crate::snapshot_test!(Reclaim, 64, @translate);
 }

@@ -2,9 +2,10 @@
 name = "trinculo"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
 
 [dependencies]
-argh = "0.1.19"
+argh = { version = "0.1.19", default-features = false, features = ["help"] }
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 log = "0.4.29"
 rayon = "1.11.0"
@@ -43,8 +44,8 @@ name = "interpret"
 harness = false
 
 [dev-dependencies]
-chaos_theory = { version = "0.3.5", features = ["derive", "regex"] }
+chaos_theory = { version = "0.3.5", features = ["derive"] }
 criterion = "0.8.2"
-insta = "1.46.3"
-rstest = "0.26.1"
+insta = "1.47.0"
+rstest = { version = "0.26.1", default-features = false }
 tempfile = "3.27.0"

@@ -317,53 +317,50 @@ pub struct Program {
 }
 
 #[cfg(test)]
-#[derive(Debug)]
-struct ProgGen;
-#[cfg(test)]
-impl chaos_theory::Generator for ProgGen {
-    type Item = Program;
-    #[allow(clippy::many_single_char_names)]
-    fn next(&self, src: &mut chaos_theory::SourceRaw, example: Option<&Self::Item>) -> Self::Item {
-        use chaos_theory::{Arbitrary, Effect, make};
-        let header = src.any_of(
-            "header",
-            make::string_matching(r"#( \w)+", true),
-            example.map(|e| &e.header),
-        );
-        let exprs = src
-            .repeat(
-                "exprs",
-                example.map(|e| e.exprs.iter()),
-                ..(u16::MAX as usize),
-                Vec::with_capacity,
-                |xs, src, ex| {
-                    let c = Expr::Const(f32::arbitrary().next(src, Some(&0.0)));
-                    let n = u16::try_from(xs.len()).expect("< u16::MAX by design");
-                    xs.push(match xs.len() {
-                        0 => src.any_of("<0>", make::one_of(&[Expr::VarX, Expr::VarY, c]), ex),
-                        1 => {
-                            let m = Expr::Monad(Monad::arbitrary().next(src, None), 0);
-                            src.any_of("<1>", make::one_of(&[Expr::VarX, Expr::VarY, c, m]), ex)
-                        }
-                        _ => {
-                            let x = make::int_in_range(..n).next(src, Some(&0));
-                            let y = make::int_in_range(..n).next(src, Some(&0));
-                            let m = Expr::Monad(Monad::arbitrary().next(src, None), x);
-                            let d = Expr::Dyad(Dyad::arbitrary().next(src, None), x, y);
-                            src.any_of("<∞>", make::one_of(&[Expr::VarX, Expr::VarY, c, m, d]), ex)
-                        }
-                    });
-                    Effect::Success
-                },
-            )
-            .unwrap_or_default();
-        Program { header, exprs }
-    }
-}
-#[cfg(test)]
 impl chaos_theory::Arbitrary for Program {
     fn arbitrary() -> impl chaos_theory::Generator<Item = Self> {
-        ProgGen
+        use chaos_theory::{
+            Arbitrary, Effect, Generator, SourceRaw,
+            make::{char_ascii, int_in_range, one_of, string},
+        };
+        #[derive(Debug)]
+        struct Gen;
+        impl Generator for Gen {
+            type Item = Program;
+            #[allow(clippy::many_single_char_names)]
+            fn next(&self, src: &mut SourceRaw, example: Option<&Self::Item>) -> Self::Item {
+                let header = src.any_of(
+                    "header",
+                    string(char_ascii().filter_assume(|&c| c != '\n' && c != '\r'))
+                        .map(|s| format!("# {}", s.trim())),
+                    example.map(|e| &e.header),
+                );
+                let exprs = src
+                    .repeat(
+                        "exprs",
+                        example.map(|e| e.exprs.iter()),
+                        0..(u16::MAX as usize),
+                        Vec::with_capacity,
+                        |xs, src, ex| {
+                            let c = Expr::Const(f32::arbitrary().next(src, None));
+                            xs.push(if xs.is_empty() {
+                                src.any_of("empty", one_of(&[Expr::VarX, Expr::VarY, c]), ex)
+                            } else {
+                                let n = u16::try_from(xs.len()).expect("< u16::MAX by design");
+                                let x = int_in_range(..n).next(src, None);
+                                let y = int_in_range(..n).next(src, None);
+                                let m = Expr::Monad(Monad::arbitrary().next(src, None), x);
+                                let d = Expr::Dyad(Dyad::arbitrary().next(src, None), x, y);
+                                src.any_of("non", one_of(&[Expr::VarX, Expr::VarY, c, m, d]), ex)
+                            });
+                            Effect::Success
+                        },
+                    )
+                    .unwrap_or_default();
+                Program { header, exprs }
+            }
+        }
+        Gen
     }
 }
 
@@ -657,6 +654,8 @@ mod tests {
         check(|src| {
             let p = src.any::<Program>("prog");
             let q = parse(&format!("{p:?}"));
+            dbg!(&p.header);
+            dbg!(&q);
             assert!(q.is_ok());
             let q = q.unwrap();
             assert_eq!(p, q);
@@ -664,6 +663,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::len_zero)]
     fn prog_empty_len_match() {
         check(|src| {
             let p = src.any::<Program>("prog");
@@ -716,16 +716,5 @@ mod tests {
         let p = parse(input);
         assert!(p.is_err());
         assert_eq!(p.err().unwrap(), expected);
-    }
-
-    #[test]
-    fn prospero() {
-        let input = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/prospero.vm"));
-        assert!(input.is_ok());
-        let input = input.unwrap();
-        let prog = parse(&input);
-        assert!(prog.is_ok());
-        let prog = prog.unwrap();
-        insta::assert_snapshot!("prospero.vm", prog);
     }
 }

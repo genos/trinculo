@@ -105,15 +105,6 @@ mod tests {
         });
     }
 
-    #[test]
-    fn reuse_on_prospero() {
-        let input = read_prospero();
-        assert!(input.is_ok());
-        let p = parse(&input.unwrap());
-        assert!(p.is_ok());
-        assert!(Reuse.translate(p.unwrap().exprs).is_ok());
-    }
-
     #[rstest]
     #[case("# empty\n", "# empty\n")]
     #[case(
@@ -140,7 +131,7 @@ mod tests {
     #[test]
     #[allow(clippy::cast_precision_loss)]
     fn reuse_too_big() {
-        let n = 65536;
+        let n = 1 + u16::MAX as usize;
         let p = Program {
             header: "too big".to_string(),
             exprs: (0..=n).map(|i| Expr::Const(i as f32)).collect(),
@@ -148,5 +139,14 @@ mod tests {
         let o = Reuse.translate(p.exprs);
         assert!(o.is_err());
         assert_eq!(o.unwrap_err(), Error::TooBig(n));
+    }
+
+    #[test]
+    fn reuse_on_prospero() {
+        let input = read_prospero();
+        assert!(input.is_ok());
+        let p = parse(&input.unwrap());
+        assert!(p.is_ok());
+        assert!(Reuse.translate(p.unwrap().exprs).is_ok());
     }
 }

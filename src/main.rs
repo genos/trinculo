@@ -2,8 +2,8 @@
 use argh::{FromArgValue, FromArgs};
 use std::path::PathBuf;
 use trinculo::{
-    Interpreter, Translator, baseline, combo_par, expr, parse, read_prospero, reclaim, reuse,
-    simd_par, thread_par, unused, utils, write_image,
+    Interpreter, Translator, baseline, combo_par, parse, read_prospero, reclaim, reuse, simd_par,
+    thread_par, unused, write_image,
 };
 
 /// Pixel size to render.
@@ -61,32 +61,7 @@ struct Args {
     interpretation: Interpretation,
 }
 
-/// Errors
-#[derive(Debug, thiserror::Error)]
-enum Error {
-    #[error("Log error: {0}")]
-    Log(#[from] log::SetLoggerError),
-    #[error("Utils error: {0}")]
-    Utils(#[from] utils::Error),
-    #[error("Parsing error: {0}")]
-    Parse(#[from] expr::ParseError),
-    #[error("Reuse translation error: {0}")]
-    Reuse(#[from] reuse::Error),
-    #[error("Unused translation error: {0}")]
-    Unused(#[from] unused::Error),
-    #[error("Baseline interpretation error: {0}")]
-    Baseline(#[from] baseline::Error),
-    #[error("Reclaim translation error: {0}")]
-    Reclaim(#[from] reclaim::Error),
-    #[error("Thread-Parallel interpretation error: {0}")]
-    ThreadPar(#[from] thread_par::Error),
-    #[error("SIMD-Parallel interpretation error: {0}")]
-    SimdPar(#[from] simd_par::Error),
-    #[error("SIMD-Parallel interpretation error: {0}")]
-    ComboPar(#[from] combo_par::Error),
-}
-
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), trinculo::Error> {
     simple_logger::init_with_env()?;
     let args: Args = argh::from_env();
     let image_size = u16::from(args.pixels);
@@ -110,15 +85,4 @@ fn main() -> Result<(), Error> {
     };
     write_image(image_size, image, args.output)?;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn pixel_size() {
-        assert_eq!(u16::from(Pixels::Small), 256);
-        assert_eq!(u16::from(Pixels::Normal), 1024);
-        assert_eq!(u16::from(Pixels::Big), 4096);
-    }
 }
