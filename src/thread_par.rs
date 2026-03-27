@@ -37,24 +37,5 @@ impl Interpreter for ThreadParallel {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{
-        expr::parse,
-        utils::{read_prospero, to_image, to_png},
-    };
-    #[test]
-    fn thread_par_16() {
-        let input = read_prospero();
-        assert!(input.is_ok());
-        let input = input.unwrap();
-        let program = parse(&input);
-        assert!(program.is_ok());
-        let output = ThreadParallel(16).interpret(program.unwrap());
-        assert!(output.is_ok());
-        let image = to_image(16, output.unwrap());
-        assert!(image.is_ok());
-        let png = to_png(&image.unwrap());
-        assert!(png.is_ok());
-        insta::assert_binary_snapshot!("thread_par_16.png", png.unwrap());
-    }
+    crate::snapshot_test!(ThreadParallel);
 }
